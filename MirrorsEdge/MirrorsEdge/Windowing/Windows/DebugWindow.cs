@@ -1,22 +1,38 @@
 using Dalamud.Bindings.ImGui;
+using Dalamud.Game.ClientState.Fates;
 using Dalamud.Interface.Textures;
 using Dalamud.Interface.Textures.TextureWraps;
 using FFXIVClientStructs.FFXIV.Client.Graphics.Kernel;
 using FFXIVClientStructs.FFXIV.Client.Graphics.Render;
 using FFXIVClientStructs.FFXIV.Client.System.Memory;
-using Lumina.Models.Models;
 using MirrorsEdge.MirrorsEdge.Cameras;
 using MirrorsEdge.MirrorsEdge.Hooking.Enum;
 using MirrorsEdge.MirrorsEdge.Hooking.HookableElements;
 using MirrorsEdge.MirrorsEdge.Memory;
 using MirrorsEdge.MirrorsEdge.Services;
 using Silk.NET.Direct3D11;
+using Silk.NET.DXGI;
+using Silk.NET.Maths;
 using System;
+using System.Collections.Generic;
 using System.Numerics;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
+using System.Security.Cryptography;
+using static FFXIVClientStructs.FFXIV.Client.UI.Misc.GroupPoseModule;
 
 namespace MirrorsEdge.MirrorsEdge.Windowing.Windows;
+
+public struct Vertex
+{
+    public Vector3D<float> Position;
+    public Vector2D<float> UV;
+    public Vertex(Vector3D<float> position, Vector2D<float> uv)
+    {
+        Position = position;
+        UV = uv;
+    }
+}
 
 unsafe class D3DBuffer(ID3D11Buffer* buffer, uint length) : IDisposable
 {
@@ -63,6 +79,88 @@ internal unsafe class DebugWindow : MirrorWindow
 
     private IDalamudTextureWrap? Wrap;
 
+    private Texture* tt;
+
+    ID3D11BlendState* blendState;
+    private ID3D11SamplerState* samplerState = null;
+
+
+    private VertexBuffer? squareBuffer;
+
+    private ID3D11Texture2D* TempTexture;
+
+    private ID3D11ShaderResourceView* ShaderResourceView;
+
+    private unsafe ID3D11BlendState* CreateBlendState(RenderTargetBlendDesc renderTargetBlendDesc)
+    {
+        var description = new BlendDesc(
+            alphaToCoverageEnable: false,
+            independentBlendEnable: false
+        );
+        description.RenderTarget[0] = renderTargetBlendDesc;
+        ID3D11BlendState* state = null;
+        _ = ((ID3D11Device*)Device.Instance()->D3D11Forwarder)->CreateBlendState(ref description, &state);
+        return state;
+    }
+
+    public static List<Vertex> Plane(Matrix4X4<float>? positionTransform = null, Matrix4X4<float>? uvTransform = null)
+    {
+        var tl = new Vertex(
+            Vector3D.Transform(new Vector3D<float>(-1, 1, 0), positionTransform ?? Matrix4X4<float>.Identity),
+            Vector2D.Transform(new Vector2D<float>(0, 0), uvTransform ?? Matrix4X4<float>.Identity));
+        var tr = new Vertex(
+            Vector3D.Transform(new Vector3D<float>(1, 1, 0), positionTransform ?? Matrix4X4<float>.Identity),
+            Vector2D.Transform(new Vector2D<float>(1, 0), uvTransform ?? Matrix4X4<float>.Identity));
+        var bl = new Vertex(
+            Vector3D.Transform(new Vector3D<float>(-1, -1, 0), positionTransform ?? Matrix4X4<float>.Identity),
+            Vector2D.Transform(new Vector2D<float>(0, 1), uvTransform ?? Matrix4X4<float>.Identity));
+        var br = new Vertex(
+            Vector3D.Transform(new Vector3D<float>(1, -1, 0), positionTransform ?? Matrix4X4<float>.Identity),
+            Vector2D.Transform(new Vector2D<float>(1, 1), uvTransform ?? Matrix4X4<float>.Identity));
+        return new List<Vertex>(){
+            tl,
+            tr,
+            bl,
+            bl,
+            tr,
+            br,
+        };
+    }
+
+    private D3DBuffer CreateBuffer(Span<byte> bytes, BindFlag bindFlag)
+    {
+        fixed (byte* p = bytes)
+        {
+            if (p == null)
+            {
+                throw new ArgumentNullException(nameof(bytes));
+            }
+            SubresourceData subresourceData = new SubresourceData(
+                pSysMem: p,
+                sysMemPitch: 0,
+                sysMemSlicePitch: 0
+            );
+            BufferDesc description = new BufferDesc(
+                byteWidth: (uint)bytes.Length,
+                usage: Usage.Dynamic,
+                bindFlags: (uint)bindFlag,
+                cPUAccessFlags: (uint)CpuAccessFlag.Write,
+                miscFlags: 0,
+                structureByteStride: 0
+            );
+            ID3D11Buffer* buffer = null;
+            ((ID3D11Device*)Device.Instance()->D3D11Forwarder)->CreateBuffer(ref description, ref subresourceData, ref buffer);
+            return new D3DBuffer(buffer, (uint)bytes.Length);
+        }
+    }
+
+    private VertexBuffer CreateVertexBuffer(List<Vertex> vertices)
+    {
+        var array = vertices.ToArray();
+        var buffer = CreateBuffer(MemoryMarshal.AsBytes(new Span<Vertex>(array)), BindFlag.VertexBuffer);
+        return new VertexBuffer(array, buffer);
+    }
+
     public DebugWindow(WindowHandler windowHandler, DalamudServices dalamudServices, MirrorServices mirrorServices, CameraHandler cameraHandler, TextureHooker textureHooker, RendererHook rendererHook) : base(windowHandler, dalamudServices, mirrorServices, "Mirrors Dev Window", ImGuiWindowFlags.None)
     {
         CameraHandler = cameraHandler;
@@ -72,15 +170,6 @@ internal unsafe class DebugWindow : MirrorWindow
         RendererHook.SetRenderPassListener(OnRenderPass);
 
         TestRenderTarget = new RenderTarget((ID3D11Device*)Device.Instance()->D3D11Forwarder, (uint)(1920 * 1.5f), (uint)(1080 * 1.5f));
-
-        ImGuiViewportTextureArgs args = new ImGuiViewportTextureArgs()
-        {
-            ViewportId = ImGui.GetMainViewport().ID,
-            AutoUpdate = true,
-            TakeBeforeImGuiRender = true,
-        };
-
-        Wrap = DalamudServices.TextureProvider.CreateFromImGuiViewportAsync(args).Result;
 
         Context = ((ID3D11DeviceContext*)Device.Instance()->D3D11DeviceContext);
 
@@ -154,15 +243,14 @@ internal unsafe class DebugWindow : MirrorWindow
                     {
                         //ID3D11ShaderResourceView* resourceView = (ID3D11ShaderResourceView*)mainRenderTArget->D3D11ShaderResourceView;
 
-                        if (TestRenderTarget.ShaderResourceView != null)
+                        if (ShaderResourceView != null)
                         {
                             if (tId == null)
                             {
-                                //tId = new ImTextureID(TestRenderTarget.ShaderResourceView);
+                                tId = new ImTextureID(ShaderResourceView);
                             }
 
-                            if (Wrap != null)
-                            ImGui.Image(Wrap.Handle, new Vector2(800, 640));
+                            ImGui.Image(tId.Value, new Vector2(800, 640));
                         }
                     }
                 }
@@ -187,7 +275,7 @@ internal unsafe class DebugWindow : MirrorWindow
             {
                 ActiveCamera = camera;
 
-                CameraHandler.SetActiveCamera(ActiveCamera);
+                //CameraHandler.SetActiveCamera(ActiveCamera);
 
                 if (ActiveCamera == CameraHandler.GameCamera)
                 {
@@ -218,10 +306,38 @@ internal unsafe class DebugWindow : MirrorWindow
         }
     }
 
+    public void SetSampler(ID3D11DeviceContext* context, ID3D11ShaderResourceView* shaderResourceView)
+    {
+        ID3D11ShaderResourceView** ptr = &shaderResourceView;
+        context->PSSetShaderResources(0, 1, ptr);
+        context->PSSetSamplers(0, 1, ref samplerState);
+    }
+
+    public void DrawSquare(ID3D11DeviceContext* context)
+    {
+        fixed (ID3D11Buffer** pHandle = &squareBuffer!.Handle)
+        {
+            uint stride = (uint)sizeof(Vertex);
+            uint offsets = 0;
+            context->IASetVertexBuffers(0, 1, pHandle, &stride, &offsets);
+            context->IASetPrimitiveTopology(Silk.NET.Core.Native.D3DPrimitiveTopology.D3D11PrimitiveTopologyTrianglelist);
+            context->Draw(squareBuffer.VertexCount, 0);
+        }
+    }
+
     private bool OnRenderPass(RenderPass renderPass)
     {
         if (renderPass == RenderPass.Main)
         {
+            IDXGISwapChain* swopChain = ((IDXGISwapChain*)Device.Instance()->SwapChain->DXGISwapChain);
+
+            TempTexture = swopChain->GetBuffer<ID3D11Texture2D>(0);
+
+            if (TempTexture != null)
+            {
+                Context->CopyResource((ID3D11Resource*)TestRenderTarget.Texture, (ID3D11Resource*)TempTexture);
+            }
+
             return true;
         }
 
@@ -230,6 +346,7 @@ internal unsafe class DebugWindow : MirrorWindow
             return false;
         }
 
+      
         return true;
     }
 

@@ -16,6 +16,8 @@ internal unsafe class RenderTarget : IDisposable
 
     private bool _disposed = false;
 
+    public ID3D11Texture2D* ReplacableTexture;
+
     public RenderTarget(ID3D11Device* device, uint width, uint height)
     {
         Width = width;

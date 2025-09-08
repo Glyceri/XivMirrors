@@ -2,6 +2,7 @@ using Dalamud.Hooking;
 using Dalamud.Utility.Signatures;
 using FFXIVClientStructs.FFXIV.Client.Graphics.Kernel;
 using MirrorsEdge.MirrorsEdge.Services;
+using Silk.NET.Direct3D11;
 using System.Collections.Generic;
 
 namespace MirrorsEdge.MirrorsEdge.Hooking.HookableElements;
@@ -15,9 +16,11 @@ internal unsafe class TextureHooker : HookableElement
 
     public readonly List<nint> Textures = new List<nint>();
 
+    private readonly ID3D11DeviceContext* Context;
+
     public TextureHooker(DalamudServices dalamudServices, MirrorServices mirrorServices) : base(dalamudServices, mirrorServices)
     {
-
+        Context = ((ID3D11DeviceContext*)Device.Instance()->D3D11DeviceContext);
     }
 
     public override void Init()

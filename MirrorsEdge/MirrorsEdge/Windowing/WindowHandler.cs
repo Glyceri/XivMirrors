@@ -18,15 +18,17 @@ internal class WindowHandler : IDisposable
     private readonly MirrorServices     MirrorServices;
     private readonly CameraHandler      CameraHandler;
     private readonly TextureHooker      TextureHooker;
+    private readonly RendererHook       RendererHook;
 
     private readonly WindowSystem       WindowSystem;
 
-    public WindowHandler(DalamudServices dalamudServices, MirrorServices mirrorServices, CameraHandler cameraHandler, TextureHooker textureHooker)
+    public WindowHandler(DalamudServices dalamudServices, MirrorServices mirrorServices, CameraHandler cameraHandler, TextureHooker textureHooker, RendererHook rendererHook)
     {
         DalamudServices = dalamudServices;
         MirrorServices  = mirrorServices;
         CameraHandler   = cameraHandler;
         TextureHooker   = textureHooker;
+        RendererHook    = rendererHook;
 
         WindowSystem = new WindowSystem("Mirrors");
 
@@ -37,7 +39,7 @@ internal class WindowHandler : IDisposable
 
     private void _Register()
     {
-        AddWindow(new DebugWindow(this, DalamudServices, MirrorServices, CameraHandler, TextureHooker));
+        AddWindow(new DebugWindow(this, DalamudServices, MirrorServices, CameraHandler, TextureHooker, RendererHook));
     }
 
     private void AddWindow(MirrorWindow window)

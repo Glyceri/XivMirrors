@@ -9,11 +9,10 @@
   </PropertyGroup>
 
     <ItemGroup>
-    <PackageReference Include="SharpDX" Version="4.2.0" />
-    <PackageReference Include="SharpDX.Direct3D11" Version="4.2.0" />
-    <PackageReference Include="SharpDX.DXGI" Version="4.2.0" />
+    <PackageReference Include="OpenXR.Loader" Version="1.0.10.2" />
     <PackageReference Include="Silk.NET.Direct3D11" Version="2.22.0" />
     <PackageReference Include="Silk.NET.Maths" Version="2.22.0" />
+    <PackageReference Include="Silk.NET.OpenXR" Version="2.22.0" />
   </ItemGroup>
 
   <ItemGroup>

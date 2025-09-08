@@ -30,7 +30,7 @@ public sealed class MirrorsEdgePlugin : IDalamudPlugin
 
         CameraHandler       = new CameraHandler(DalamudServices, MirrorServices, HookManager.CameraHooks);
 
-        WindowHandler       = new WindowHandler(DalamudServices, MirrorServices, CameraHandler, HookManager.TextureHooker);
+        WindowHandler       = new WindowHandler(DalamudServices, MirrorServices, CameraHandler, HookManager.TextureHooker, HookManager.RendererHook);
     }
 
     public void Dispose()

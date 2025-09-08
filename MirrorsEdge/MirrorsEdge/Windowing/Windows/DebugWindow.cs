@@ -1,15 +1,19 @@
 using Dalamud.Bindings.ImGui;
+using Dalamud.Interface.Textures;
+using Dalamud.Interface.Textures.TextureWraps;
 using FFXIVClientStructs.FFXIV.Client.Graphics.Kernel;
 using FFXIVClientStructs.FFXIV.Client.Graphics.Render;
-using FFXIVClientStructs.Interop;
+using FFXIVClientStructs.FFXIV.Client.System.Memory;
 using Lumina.Models.Models;
 using MirrorsEdge.MirrorsEdge.Cameras;
+using MirrorsEdge.MirrorsEdge.Hooking.Enum;
 using MirrorsEdge.MirrorsEdge.Hooking.HookableElements;
 using MirrorsEdge.MirrorsEdge.Memory;
 using MirrorsEdge.MirrorsEdge.Services;
 using Silk.NET.Direct3D11;
 using System;
 using System.Numerics;
+using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 
 namespace MirrorsEdge.MirrorsEdge.Windowing.Windows;
@@ -45,8 +49,9 @@ internal unsafe class DebugWindow : MirrorWindow
     protected override Vector2 MaxSize      { get; } = new Vector2(2000, 2000);
     protected override Vector2 DefaultSize  { get; } = new Vector2(800, 400);
 
-    private readonly CameraHandler CameraHandler;
-    private readonly TextureHooker TextureHooker;
+    private readonly CameraHandler  CameraHandler;
+    private readonly TextureHooker  TextureHooker;
+    private readonly RendererHook   RendererHook;
 
     private readonly VertexBuffer  VertexBuffer;
 
@@ -54,12 +59,28 @@ internal unsafe class DebugWindow : MirrorWindow
 
     private readonly ID3D11DeviceContext* Context;
 
-    public DebugWindow(WindowHandler windowHandler, DalamudServices dalamudServices, MirrorServices mirrorServices, CameraHandler cameraHandler, TextureHooker textureHooker) : base(windowHandler, dalamudServices, mirrorServices, "Mirrors Dev Window", ImGuiWindowFlags.None)
+    private BaseCamera? ActiveCamera;
+
+    private IDalamudTextureWrap? Wrap;
+
+    public DebugWindow(WindowHandler windowHandler, DalamudServices dalamudServices, MirrorServices mirrorServices, CameraHandler cameraHandler, TextureHooker textureHooker, RendererHook rendererHook) : base(windowHandler, dalamudServices, mirrorServices, "Mirrors Dev Window", ImGuiWindowFlags.None)
     {
         CameraHandler = cameraHandler;
         TextureHooker = textureHooker;
+        RendererHook  = rendererHook;
 
-        TestRenderTarget = new RenderTarget((ID3D11Device*)Device.Instance()->D3D11Forwarder, 500, 500);
+        RendererHook.SetRenderPassListener(OnRenderPass);
+
+        TestRenderTarget = new RenderTarget((ID3D11Device*)Device.Instance()->D3D11Forwarder, (uint)(1920 * 1.5f), (uint)(1080 * 1.5f));
+
+        ImGuiViewportTextureArgs args = new ImGuiViewportTextureArgs()
+        {
+            ViewportId = ImGui.GetMainViewport().ID,
+            AutoUpdate = true,
+            TakeBeforeImGuiRender = true,
+        };
+
+        Wrap = DalamudServices.TextureProvider.CreateFromImGuiViewportAsync(args).Result;
 
         Context = ((ID3D11DeviceContext*)Device.Instance()->D3D11DeviceContext);
 
@@ -111,21 +132,23 @@ internal unsafe class DebugWindow : MirrorWindow
                 tId = null;
             }
 
-            RenderTargetManagerExtended* rManager = (RenderTargetManagerExtended*)RenderTargetManager.Instance();
-
-            if (rManager != null)
+            if (RenderTargetManager.Instance() != null)
             {
-               Texture* uiTexture = rManager->DrawTexture;
+                //Texture* uiTexture = RenderTargetManager.Instance()->GBuffers[0];
 
-                if (uiTexture != null) 
+                
+
+                //if (uiTexture != null) 
                 {
                     //Texture* mainRenderTArget = TestRenderTa;
 
-                    var box = ComputeCopyBox(uiTexture, TestRenderTarget);
+                    //var box = ComputeCopyBox(uiTexture, TestRenderTarget);
+
+                    //MirrorServices.MirrorLog.Log(box.Left + ", " + box.Right + ", " + box.Top + ", " + box.Bottom);
 
                     //Context->CopyResource((ID3D11Resource*)TestRenderTarget.Texture, (ID3D11Resource*)uiTexture->D3D11Texture2D);
 
-                    Context->CopySubresourceRegion((ID3D11Resource*)TestRenderTarget.Texture, 0, 0, 0, 0, (ID3D11Resource*)uiTexture->D3D11Texture2D, 0, ref box);
+                    //Context->CopySubresourceRegion((ID3D11Resource*)TestRenderTarget.Texture, 0, 0, 0, 0, (ID3D11Resource*)uiTexture->D3D11Texture2D, 0, ref box);
 
                     //if (mainRenderTArget != null)
                     {
@@ -135,10 +158,11 @@ internal unsafe class DebugWindow : MirrorWindow
                         {
                             if (tId == null)
                             {
-                                tId = new ImTextureID(TestRenderTarget.ShaderResourceView);
+                                //tId = new ImTextureID(TestRenderTarget.ShaderResourceView);
                             }
 
-                            ImGui.Image(tId.Value, new Vector2(800, 640));
+                            if (Wrap != null)
+                            ImGui.Image(Wrap.Handle, new Vector2(800, 640));
                         }
                     }
                 }
@@ -161,7 +185,14 @@ internal unsafe class DebugWindow : MirrorWindow
         {
             if (ImGui.Button($"[{camCounter}]: {camera.GetType().Name}"))
             {
-                CameraHandler.SetActiveCamera(camera);
+                ActiveCamera = camera;
+
+                CameraHandler.SetActiveCamera(ActiveCamera);
+
+                if (ActiveCamera == CameraHandler.GameCamera)
+                {
+                    ActiveCamera = null;
+                }
             }
 
             ImGui.SameLine();
@@ -185,20 +216,27 @@ internal unsafe class DebugWindow : MirrorWindow
                 MirrorServices.MirrorLog.LogException(e);
             }
         }
+    }
 
-        if (ImGui.Button("Set Override Camera"))
+    private bool OnRenderPass(RenderPass renderPass)
+    {
+        if (renderPass == RenderPass.Main)
         {
-            CameraHandler.SetActiveCamera(null);
+            return true;
         }
 
-        if (ImGui.Button("Clear Override Camera"))
+        if (ActiveCamera == null)
         {
-            CameraHandler.SetActiveCamera(null);
+            return false;
         }
+
+        return true;
     }
 
     protected override void OnDispose()
     {
+        Wrap?.Dispose();
+
         TestRenderTarget.Dispose();
     }
 }

@@ -15,14 +15,16 @@ internal class HookManager : IDisposable
 
     public readonly CameraHooks         CameraHooks;
     public readonly TextureHooker       TextureHooker;
+    public readonly RendererHook        RendererHook;
 
     public HookManager(DalamudServices dalamudServices, MirrorServices mirrorServices)
     {
         DalamudServices = dalamudServices;
         MirrorServices  = mirrorServices;
 
-        Register(CameraHooks = new CameraHooks(DalamudServices, MirrorServices));
-        Register(TextureHooker = new TextureHooker(DalamudServices, MirrorServices));
+        Register(CameraHooks    = new CameraHooks(DalamudServices, MirrorServices));
+        Register(TextureHooker  = new TextureHooker(DalamudServices, MirrorServices));
+        Register(RendererHook   = new RendererHook(DalamudServices, MirrorServices, CameraHooks));
     }
 
     private void Register(IHookableElement element)

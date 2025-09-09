@@ -9,17 +9,25 @@ using System;
 using SceneCameraManager = FFXIVClientStructs.FFXIV.Client.Graphics.Scene.CameraManager;
 using SceneCamera = FFXIVClientStructs.FFXIV.Client.Graphics.Scene.Camera;
 using RenderCamera = FFXIVClientStructs.FFXIV.Client.Graphics.Render.Camera;
+using FFXIVClientStructs.FFXIV.Client.Game;
 
 namespace MirrorsEdge.MirrorsEdge.Hooking.HookableElements;
 
 internal unsafe class RendererHook : HookableElement
 {
+    private bool _disposed = false;
+
     public  delegate bool RenderPassDelegate(RenderPass pass);
-    private delegate void DXGIPresentDelegate(long a, long b);
+    private delegate void DXGIPresentDelegate(IntPtr ptr);
     private delegate void RenderThreadSetRenderTargetDelegate(Device* deviceInstance, SetRenderTargetCommand* command);
     private delegate void SetMatricesDelegate(FFXIVClientStructs.FFXIV.Client.Game.Camera* camera, IntPtr ptr);
 
-    [Signature("E8 ?? ?? ?? ?? C6 43 79 00", DetourName = nameof(DXGIPresentDetour))]
+    private delegate void ImmediateContextProcessCommands(ImmediateContext* commands, RenderCommandBufferGroup* bufferGroup, uint a3);
+
+    [Signature("E8 ?? ?? ?? ?? 48 8B 4B 30 FF 15 ?? ?? ?? ??", DetourName = nameof(OnImmediateContextProcessCommands))]
+    private readonly Hook<ImmediateContextProcessCommands>? ImmediateContextProcessCommandsHook = null;
+
+    [Signature("E8 ?? ?? ?? ?? C6 46 79 00 48 8B 8E 88 0A 0E 00", DetourName = nameof(DXGIPresentDetour))]
     private readonly Hook<DXGIPresentDelegate>? DXGIPresentHook = null;
 
     [Signature("E8 ?? ?? ?? ?? E9 ?? ?? ?? ?? F3 0F 10 5F 18", DetourName = nameof(RenderThreadSetRenderTargetDetour))]
@@ -39,25 +47,42 @@ internal unsafe class RendererHook : HookableElement
 
     public override void Init()
     {
-        DXGIPresentHook?.Enable();
+        //ImmediateContextProcessCommandsHook?.Enable();
+        //DXGIPresentHook?.Enable();
         //RenderThreadSetRenderTargetHook?.Enable();
         //SetMatricesHook?.Enable();
     }
 
-    private void DXGIPresentDetour(long a, long b)
+    private void OnImmediateContextProcessCommands(ImmediateContext* commands, RenderCommandBufferGroup* bufferGroup, uint a3)
+    {
+        
+
+        if (_renderPass?.Invoke(RenderPass.Main) ?? false)
+        {
+
+        }
+
+        ImmediateContextProcessCommandsHook!.Original(commands, bufferGroup, a3);
+
+        
+
+        
+    }
+
+    private void DXGIPresentDetour(IntPtr ptr)
     {
         try
         {
             if (_renderPass?.Invoke(RenderPass.Mirror) ?? false)
             {
-                DXGIPresentHook!.Original(a, b);
+                DXGIPresentHook!.OriginalDisposeSafe(ptr);
             }
 
             CameraHooks.SetOverride(null);
-
+           
             if (_renderPass?.Invoke(RenderPass.Main) ?? true)
             {
-                DXGIPresentHook!.Original(a, b);
+                DXGIPresentHook!.OriginalDisposeSafe(ptr);
             }
         }
         catch (Exception ex)
@@ -113,6 +138,12 @@ internal unsafe class RendererHook : HookableElement
 
     public override void OnDispose()
     {
+        _disposed = true;
+
+        ImmediateContextProcessCommandsHook?.Dispose();
+
+        DXGIPresentHook?.Disable();
+
         RenderThreadSetRenderTargetHook?.Dispose();
         SetMatricesHook?.Dispose();
         DXGIPresentHook?.Dispose();

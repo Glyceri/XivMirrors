@@ -164,10 +164,7 @@ internal unsafe class DebugWindow : MirrorWindow
 
             if (BackBufferResourceView != null)
             {
-                if (!BackBufferResourceView.IsDisposed)
-                {
-                    ImGui.Image(new ImTextureID(BackBufferResourceView.NativePointer), new(size.Width, size.Height));
-                }
+                ImGui.Image(new ImTextureID(BackBufferResourceView.NativePointer), new(size.Width, size.Height));
             }
 
             if (FullScreenTexture != null)
@@ -349,6 +346,7 @@ internal unsafe class DebugWindow : MirrorWindow
         {
             DeviceContext context = Device.ImmediateContext;
 
+            context.OutputMerger.ResetTargets();
             context.Flush();
             context.ClearState();
         }

@@ -44,8 +44,8 @@ public sealed class MirrorsEdgePlugin : IDalamudPlugin
 
     public void Dispose()
     {
-        WindowHandler.Dispose();
         HookManager.Dispose();
+        WindowHandler.Dispose();
         CameraHandler.Dispose();
     }
 }

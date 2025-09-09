@@ -1,20 +1,19 @@
 using Dalamud.Bindings.ImGui;
-using FFXIVClientStructs.FFXIV.Client.Graphics.Kernel;
-using FFXIVClientStructs.FFXIV.Client.Graphics.Render;
 using MirrorsEdge.MirrorsEdge.Cameras;
 using MirrorsEdge.MirrorsEdge.Hooking.Enum;
 using MirrorsEdge.MirrorsEdge.Hooking.HookableElements;
-using MirrorsEdge.MirrorsEdge.Memory;
 using MirrorsEdge.MirrorsEdge.Services;
-using SharpDX.Direct3D;
+using SharpDX;
 using SharpDX.Direct3D11;
 using SharpDX.DXGI;
+using Silk.NET.Core.Native;
 using Silk.NET.Direct3D11;
 using Silk.NET.DXGI;
 using System;
 using System.Numerics;
-using System.Runtime.InteropServices;
-using KernalDevice = FFXIVClientStructs.FFXIV.Client.Graphics.Kernel.Device;
+using Buffer = SharpDX.Direct3D11.Buffer;
+using Device = SharpDX.Direct3D11.Device;
+using KernelDevice = FFXIVClientStructs.FFXIV.Client.Graphics.Kernel.Device;
 
 namespace MirrorsEdge.MirrorsEdge.Windowing.Windows;
 
@@ -30,12 +29,17 @@ internal unsafe class DebugWindow : MirrorWindow
 
     private BaseCamera? ActiveCamera;
 
-    private readonly RenderTarget           RenderTarget;
-    private readonly RenderTarget           GameRenderTarget;
-    private readonly ImTextureID            TextureId;
-    private readonly ID3D11Device*          Device;
-    private readonly ID3D11DeviceContext*   Context;
-    private readonly ID3D11Texture2D*       BackBuffer;
+    private readonly Device?    Device;
+    private readonly SwapChain? SwapChain;
+    
+    private ShaderResourceView? BackBufferResourceView;
+    private ShaderResourceView? BackBufferResourceViewCopy;
+
+    private Texture2D?          BackBufferTexture;
+    private Texture2D?          BackBufferTextureCopy;
+    
+    private RenderTargetView?   BackBufferRenderTargetView;
+    private RenderTargetView?   BackBufferRenderTargetViewCopy;
 
     public DebugWindow(WindowHandler windowHandler, DalamudServices dalamudServices, MirrorServices mirrorServices, CameraHandler cameraHandler, TextureHooker textureHooker, RendererHook rendererHook) : base(windowHandler, dalamudServices, mirrorServices, "Mirrors Dev Window", ImGuiWindowFlags.None)
     {
@@ -45,32 +49,135 @@ internal unsafe class DebugWindow : MirrorWindow
 
         RendererHook.SetRenderPassListener(OnRenderPass);
 
-        Device          = (ID3D11Device*)KernalDevice.Instance()->D3D11Forwarder;
+        try
+        {
+            KernelDevice* kernelDevice = KernelDevice.Instance();
 
-        Context         = (ID3D11DeviceContext*)KernalDevice.Instance()->D3D11DeviceContext;
-
-        RenderTarget    = new RenderTarget(Device, 1920, 1080);
-
-        TextureId       = new ImTextureID(RenderTarget.ShaderResourceView);
-
-        Guid iid        = typeof(ID3D11Texture2D).GUID;
-
-        int hr = ((IDXGISwapChain*)(KernalDevice.Instance()->SwapChain->DXGISwapChain))->GetBuffer(0, &iid, (void**)BackBuffer);
+            SwapChain   = new SwapChain((nint)kernelDevice->SwapChain->DXGISwapChain);
+            Device      = SwapChain.GetDevice<Device>();
+        }
+        catch (Exception ex)
+        {
+            MirrorServices.MirrorLog.LogError(ex, $"Failed to initialize device.");
+        }
 
         Open();
     }
 
-    protected override void OnDraw()
+    private void CreateRenderTarget(Size2 size)
+    {
+        if (BackBufferTexture != null &&
+            BackBufferTexture.Description.Width == size.Width &&
+            BackBufferTexture.Description.Height == size.Height)
+        {
+            return;
+        }
+
+        try
+        {
+            BackBufferResourceView?.Dispose();
+            BackBufferTexture?.Dispose();
+            BackBufferRenderTargetView?.Dispose();
+
+            BackBufferResourceViewCopy?.Dispose();
+            BackBufferTextureCopy?.Dispose();
+            BackBufferRenderTargetViewCopy?.Dispose();
+
+            Texture2DDescription texture2DDescription = new Texture2DDescription
+            {
+                Width               = size.Width,
+                Height              = size.Height,
+                MipLevels           = 1,
+                ArraySize           = 1,
+                Format              = Format.R8G8B8A8_UNorm,
+                SampleDescription   = new SampleDescription(1, 0),
+                Usage               = ResourceUsage.Default,
+                BindFlags           = BindFlags.RenderTarget | BindFlags.ShaderResource,
+                CpuAccessFlags      = CpuAccessFlags.None,
+                OptionFlags         = ResourceOptionFlags.None,
+            };
+
+            BackBufferTexture               = new Texture2D(Device, texture2DDescription);
+            BackBufferRenderTargetView      = new RenderTargetView(Device, BackBufferTexture);
+            BackBufferResourceView          = new ShaderResourceView(Device, BackBufferTexture);
+
+            BackBufferTextureCopy           = new Texture2D(Device, texture2DDescription);
+            BackBufferRenderTargetViewCopy  = new RenderTargetView(Device, BackBufferTextureCopy);
+            BackBufferResourceViewCopy      = new ShaderResourceView(Device, BackBufferTextureCopy);
+        }
+        catch (Exception e)
+        {
+            MirrorServices.MirrorLog.LogException(e);
+        }
+    }
+
+    private void DrawBackBuffer()
     {
         try
         {
-            ImGui.Image(TextureId, new Vector2(800, 800));
+            Vector2 contentRegionAvail = ImGui.GetContentRegionAvail();
+            Size2 size = new Size2((int)contentRegionAvail.X, (int)contentRegionAvail.Y);
+
+            if (size.Width <= 0 || size.Height <= 0)
+            {
+                return;
+            }
+
+            /*
+            if (Device == null)
+            {
+                return;
+            }
+
+            if (SwapChain == null)
+            {
+                return;
+            }
+
+            DeviceContext context = Device.ImmediateContext;
+
+            BackBufferResourceViewCopy?.Dispose();
+            BackBufferTextureCopy?.Dispose();
+            BackBufferResourceViewCopy = null;
+            BackBufferTextureCopy = null;
+
+            Texture2D               backBuffer              = SwapChain.GetBackBuffer<Texture2D>(0);
+            Texture2DDescription    backBufferDescription   = backBuffer.Description;
+
+            backBufferDescription.BindFlags         = BindFlags.ShaderResource | BindFlags.RenderTarget;
+            backBufferDescription.Usage             = ResourceUsage.Default;
+            backBufferDescription.CpuAccessFlags    = CpuAccessFlags.None;
+            backBufferDescription.OptionFlags       = ResourceOptionFlags.None;
+
+            BackBufferTextureCopy = new Texture2D(Device, backBufferDescription);
+
+            context.CopyResource(backBuffer, BackBufferTextureCopy);
+
+            BackBufferResourceViewCopy = new ShaderResourceView(Device, BackBufferTextureCopy);
+
+            ImGui.Image(new ImTextureID(BackBufferResourceViewCopy.NativePointer), new(size.Width, size.Height));
+            */
+
+            var texture = default(ComPtr<ID3D11Texture2D>);
+
+            var device = FFXIVClientStructs.FFXIV.Client.Graphics.Kernel.Device.Instance();
+
+            Guid guid = typeof(Texture2D).GUID;
+
+            //fixed (Guid* piid = &guid)
+            {
+                ((IDXGISwapChain*)device->SwapChain->DXGISwapChain)->GetBuffer(0, &guid, (void**)texture.GetAddressOf());
+            }
         }
         catch (Exception ex)
         {
             Console.WriteLine(ex.Message);
         }
+    }
 
+    protected override void OnDraw()
+    {
+        DrawBackBuffer();
 
         int camCounter = 0;
 
@@ -122,15 +229,7 @@ internal unsafe class DebugWindow : MirrorWindow
         {
             try
             {
-                //Context->OMSetRenderTargets(1, (ID3D11RenderTargetView**)&RenderTarget.RenderTargetView[0], null);
 
-                //Box box = new Box(0, 0, 0, 1920, 1080, 1);
-
-                //Context->CopyResource((ID3D11Resource*)RenderTarget.Texture, (ID3D11Resource*)BackBuffer);
-
-                //Context->CopySubresourceRegion((ID3D11Resource*)RenderTarget.Texture, 0, 0, 0, 0, (ID3D11Resource*)BackBuffer, 0, ref box);
-
-                
             }
             catch (Exception ex)
             {
@@ -150,6 +249,13 @@ internal unsafe class DebugWindow : MirrorWindow
 
     protected override void OnDispose()
     {
-        RenderTarget.Dispose();
+        BackBufferResourceView?.Dispose();
+        BackBufferResourceViewCopy?.Dispose();
+
+        BackBufferTexture?.Dispose();
+        BackBufferTextureCopy?.Dispose();
+
+        BackBufferRenderTargetView?.Dispose();
+        BackBufferRenderTargetViewCopy?.Dispose();
     }
 }

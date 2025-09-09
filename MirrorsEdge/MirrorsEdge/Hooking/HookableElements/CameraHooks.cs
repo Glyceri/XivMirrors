@@ -30,7 +30,7 @@ internal unsafe class CameraHooks : HookableElement
     {
         GameAllocation<Camera> newCamera = new GameAllocation<Camera>();
 
-        Camera_CtorDetour(newCamera.Data);
+        _ = Camera_CtorDetour(newCamera.Data);
 
         if (clone != null)
         {
@@ -57,8 +57,6 @@ internal unsafe class CameraHooks : HookableElement
         {
             return OverrideCamera.Camera;
         }    
-
-        //MirrorServices.MirrorLog.Log("Get Active Camera!");
 
         return CameraManager_GetActiveCameraHook!.Original(cameraManager);
     }

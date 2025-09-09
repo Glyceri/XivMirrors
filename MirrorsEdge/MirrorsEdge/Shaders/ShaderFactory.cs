@@ -1,3 +1,4 @@
+using MirrorsEdge.mirrorsedge.Memory;
 using MirrorsEdge.MirrorsEdge.Resources;
 using MirrorsEdge.MirrorsEdge.Services;
 using SharpDX;
@@ -12,6 +13,7 @@ internal class ShaderFactory
 {
     private readonly MirrorServices MirrorServices;
     private readonly ResourceLoader ResourceLoader;
+    private readonly DirectXData    DirectXData;
 
     private readonly SamplerStateDescription SamplerDescription = new SamplerStateDescription
     {
@@ -25,13 +27,14 @@ internal class ShaderFactory
         MaximumLod          = float.MaxValue
     };
 
-    public ShaderFactory(MirrorServices mirrorServices, ResourceLoader resourceLoader)
+    public ShaderFactory(MirrorServices mirrorServices, ResourceLoader resourceLoader, DirectXData directXData)
     {
-        MirrorServices = mirrorServices;
-        ResourceLoader = resourceLoader;
+        MirrorServices  = mirrorServices;
+        ResourceLoader  = resourceLoader;
+        DirectXData     = directXData;
     }
 
-    public bool GetVertexShader(Device device, string resourceName, InputElement[] inputElements, [NotNullWhen(true)] out VertexShader? vertexShader, out InputLayout? inputLayout, [NotNullWhen(true)] out SamplerState? samplerState)
+    public bool GetVertexShader(string resourceName, InputElement[] inputElements, [NotNullWhen(true)] out VertexShader? vertexShader, out InputLayout? inputLayout, [NotNullWhen(true)] out SamplerState? samplerState)
     {
         vertexShader = null;
         inputLayout  = null;
@@ -48,14 +51,14 @@ internal class ShaderFactory
                 throw new Exception("Vertex shader result is NULL");
             }
 
-            vertexShader = new VertexShader(device, vertexShaderResult);
+            vertexShader = new VertexShader(DirectXData.Device, vertexShaderResult);
 
             if (inputElements.Length > 0)
             {
-                inputLayout = new InputLayout(device, ShaderSignature.GetInputSignature(vertexShaderResult), inputElements);
+                inputLayout = new InputLayout(DirectXData.Device, ShaderSignature.GetInputSignature(vertexShaderResult), inputElements);
             }
 
-            samplerState = new SamplerState(device, SamplerDescription);
+            samplerState = new SamplerState(DirectXData.Device, SamplerDescription);
 
             return true;
         }
@@ -67,7 +70,7 @@ internal class ShaderFactory
         return false;
     }
 
-    public bool GetFragmentShader(Device device, string resourceName, [NotNullWhen(true)] out PixelShader? fragmentShader)
+    public bool GetFragmentShader(string resourceName, [NotNullWhen(true)] out PixelShader? fragmentShader)
     {
         fragmentShader = null;
 
@@ -77,7 +80,7 @@ internal class ShaderFactory
 
             using CompilationResult fragmentShaderResult = ShaderBytecode.Compile(data, "PSMain", "ps_5_0");
 
-            fragmentShader = new PixelShader(device, fragmentShaderResult);
+            fragmentShader = new PixelShader(DirectXData.Device, fragmentShaderResult);
 
             return true;
         }

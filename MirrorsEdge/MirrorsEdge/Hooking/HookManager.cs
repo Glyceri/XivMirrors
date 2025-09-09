@@ -15,7 +15,6 @@ internal class HookManager : IDisposable
     private readonly List<IHookableElement> _hookableElements = new List<IHookableElement>();
 
     public readonly CameraHooks         CameraHooks;
-    public readonly TextureHooker       TextureHooker;
     public readonly RendererHook        RendererHook;
     public readonly ScreenHook          ScreenHook;
 
@@ -25,8 +24,7 @@ internal class HookManager : IDisposable
         MirrorServices  = mirrorServices;
 
         Register(CameraHooks    = new CameraHooks(DalamudServices, MirrorServices));
-        Register(TextureHooker  = new TextureHooker(DalamudServices, MirrorServices));
-        Register(RendererHook   = new RendererHook(DalamudServices, MirrorServices, CameraHooks));
+        Register(RendererHook   = new RendererHook(DalamudServices, MirrorServices));
         Register(ScreenHook     = new ScreenHook(DalamudServices, MirrorServices));
     }
 

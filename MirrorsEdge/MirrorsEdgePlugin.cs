@@ -1,4 +1,5 @@
 using Dalamud.Plugin;
+using MirrorsEdge.mirrorsedge.Memory;
 using MirrorsEdge.MirrorsEdge.Cameras;
 using MirrorsEdge.MirrorsEdge.Hooking;
 using MirrorsEdge.MirrorsEdge.Resources;
@@ -16,12 +17,14 @@ public sealed class MirrorsEdgePlugin : IDalamudPlugin
     private readonly DalamudServices    DalamudServices;
     private readonly MirrorServices     MirrorServices;
 
+    private readonly DirectXData        DirectXData;
+
     private readonly HookManager        HookManager;
     private readonly CameraHandler      CameraHandler;
     private readonly WindowHandler      WindowHandler;
 
     private readonly ResourceLoader     ResourceLoader;
-    private readonly ShaderFactory      ShaderFactory;
+    private readonly ShaderHandler      ShaderHandler;
 
     public MirrorsEdgePlugin(IDalamudPluginInterface dalamud)
     {
@@ -31,15 +34,17 @@ public sealed class MirrorsEdgePlugin : IDalamudPlugin
 
         MirrorServices      = new MirrorServices(DalamudServices);
 
+        DirectXData         = new DirectXData(MirrorServices);
+
         HookManager         = new HookManager(DalamudServices, MirrorServices);
 
         CameraHandler       = new CameraHandler(DalamudServices, MirrorServices, HookManager.CameraHooks);
 
-        ResourceLoader      = new ResourceLoader();
+        ResourceLoader      = new ResourceLoader(DirectXData);
 
-        ShaderFactory       = new ShaderFactory(MirrorServices, ResourceLoader);
+        ShaderHandler       = new ShaderHandler(MirrorServices, ResourceLoader, DirectXData);
 
-        WindowHandler       = new WindowHandler(DalamudServices, MirrorServices, CameraHandler, HookManager.TextureHooker, HookManager.RendererHook, ShaderFactory);
+        WindowHandler       = new WindowHandler(DalamudServices, MirrorServices, CameraHandler, HookManager.RendererHook, HookManager.ScreenHook, ShaderHandler, DirectXData);
     }
 
     public void Dispose()
@@ -47,5 +52,7 @@ public sealed class MirrorsEdgePlugin : IDalamudPlugin
         HookManager.Dispose();
         WindowHandler.Dispose();
         CameraHandler.Dispose();
+
+        DirectXData.Dispose();
     }
 }

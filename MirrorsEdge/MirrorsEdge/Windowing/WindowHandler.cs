@@ -1,4 +1,6 @@
 using Dalamud.Interface.Windowing;
+using MirrorsEdge.mirrorsedge.Hooking.HookableElements;
+using MirrorsEdge.mirrorsedge.Memory;
 using MirrorsEdge.MirrorsEdge.Cameras;
 using MirrorsEdge.MirrorsEdge.Hooking.HookableElements;
 using MirrorsEdge.MirrorsEdge.Services;
@@ -18,20 +20,22 @@ internal class WindowHandler : IDisposable
     private readonly DalamudServices    DalamudServices;
     private readonly MirrorServices     MirrorServices;
     private readonly CameraHandler      CameraHandler;
-    private readonly TextureHooker      TextureHooker;
     private readonly RendererHook       RendererHook;
-    private readonly ShaderFactory      ShaderFactory;
+    private readonly ScreenHook         ScreenHook;
+    private readonly ShaderHandler      ShaderHandler;
+    private readonly DirectXData        DirectXData;
 
     private readonly WindowSystem       WindowSystem;
 
-    public WindowHandler(DalamudServices dalamudServices, MirrorServices mirrorServices, CameraHandler cameraHandler, TextureHooker textureHooker, RendererHook rendererHook, ShaderFactory shaderFactory)
+    public WindowHandler(DalamudServices dalamudServices, MirrorServices mirrorServices, CameraHandler cameraHandler, RendererHook rendererHook, ScreenHook screenHook, ShaderHandler shaderFactory, DirectXData directXData)
     {
         DalamudServices = dalamudServices;
         MirrorServices  = mirrorServices;
         CameraHandler   = cameraHandler;
-        TextureHooker   = textureHooker;
         RendererHook    = rendererHook;
-        ShaderFactory   = shaderFactory;
+        ShaderHandler   = shaderFactory;
+        ScreenHook      = screenHook;
+        DirectXData     = directXData;
 
         WindowSystem = new WindowSystem("Mirrors");
 
@@ -42,7 +46,7 @@ internal class WindowHandler : IDisposable
 
     private void _Register()
     {
-        DalamudServices.Framework.RunOnFrameworkThread(() => AddWindow(new DebugWindow(this, DalamudServices, MirrorServices, CameraHandler, TextureHooker, RendererHook, ShaderFactory)));
+        DalamudServices.Framework.RunOnFrameworkThread(() => AddWindow(new DebugWindow(this, DalamudServices, MirrorServices, CameraHandler, RendererHook, ScreenHook, ShaderHandler, DirectXData)));
     }
 
     private void AddWindow(MirrorWindow window)

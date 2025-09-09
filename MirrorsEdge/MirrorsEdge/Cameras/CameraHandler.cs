@@ -19,6 +19,10 @@ internal unsafe class CameraHandler : IDisposable
     private readonly MirrorServices     MirrorServices;
     private readonly CameraHooks        CameraHooks;
 
+    private BaseCamera? _currentActiveCamera;
+
+    public BaseCamera? ActiveCamera => _currentActiveCamera;
+
     public CameraHandler(DalamudServices dalamudServices, MirrorServices mirrorServices, CameraHooks cameraHooks)
     {
         DalamudServices = dalamudServices;
@@ -26,6 +30,8 @@ internal unsafe class CameraHandler : IDisposable
         CameraHooks     = cameraHooks;
 
         PrepareCameraList();
+
+        SetActiveCamera(GameCamera);
     }
 
     public BaseCamera[] Cameras =>
@@ -71,7 +77,7 @@ internal unsafe class CameraHandler : IDisposable
 
     public void SetActiveCamera(BaseCamera? camera)
     {
-        //MirrorServices.MirrorLog.Log("Overwriting Active Camera");
+        MirrorServices.MirrorLog.Log("Overwriting Active Camera");
 
         FFXIVClientStructs.FFXIV.Client.Graphics.Scene.CameraManager* cameraManager = FFXIVClientStructs.FFXIV.Client.Graphics.Scene.CameraManager.Instance();
 
@@ -96,7 +102,9 @@ internal unsafe class CameraHandler : IDisposable
         else
         {
             CameraHooks.SetOverride(null);
-        }       
+        }
+
+        _currentActiveCamera = camera;
     }
 
     public void ResetCamera()
@@ -136,6 +144,11 @@ internal unsafe class CameraHandler : IDisposable
 
     public void DestroyCamera(BaseCamera camera)
     {
+        if (_currentActiveCamera == camera)
+        {
+            ResetCamera();
+        }
+
         if (camera is MirrorCamera)
         {
             camera.Dispose();

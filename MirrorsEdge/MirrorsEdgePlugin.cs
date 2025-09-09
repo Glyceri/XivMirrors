@@ -36,15 +36,15 @@ public sealed class MirrorsEdgePlugin : IDalamudPlugin
 
         DirectXData         = new DirectXData(MirrorServices);
 
-        HookManager         = new HookManager(DalamudServices, MirrorServices);
-
-        CameraHandler       = new CameraHandler(DalamudServices, MirrorServices, HookManager.CameraHooks);
-
         ResourceLoader      = new ResourceLoader(DirectXData);
 
         ShaderHandler       = new ShaderHandler(MirrorServices, ResourceLoader, DirectXData);
 
-        WindowHandler       = new WindowHandler(DalamudServices, MirrorServices, CameraHandler, HookManager.RendererHook, HookManager.ScreenHook, ShaderHandler, DirectXData);
+        HookManager         = new HookManager(DalamudServices, MirrorServices, DirectXData, ShaderHandler);
+
+        CameraHandler       = new CameraHandler(DalamudServices, MirrorServices, HookManager.CameraHooks);
+
+        WindowHandler       = new WindowHandler(DalamudServices, MirrorServices, CameraHandler, HookManager.RendererHook, HookManager.ScreenHook, ShaderHandler, DirectXData, HookManager.BackBufferHook);
     }
 
     public void Dispose()

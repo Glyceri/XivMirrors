@@ -24,10 +24,11 @@ internal class WindowHandler : IDisposable
     private readonly ScreenHook         ScreenHook;
     private readonly ShaderHandler      ShaderHandler;
     private readonly DirectXData        DirectXData;
+    private readonly BackBufferHook     BackBufferHook;
 
     private readonly WindowSystem       WindowSystem;
 
-    public WindowHandler(DalamudServices dalamudServices, MirrorServices mirrorServices, CameraHandler cameraHandler, RendererHook rendererHook, ScreenHook screenHook, ShaderHandler shaderFactory, DirectXData directXData)
+    public WindowHandler(DalamudServices dalamudServices, MirrorServices mirrorServices, CameraHandler cameraHandler, RendererHook rendererHook, ScreenHook screenHook, ShaderHandler shaderFactory, DirectXData directXData, BackBufferHook backBufferHook)
     {
         DalamudServices = dalamudServices;
         MirrorServices  = mirrorServices;
@@ -36,6 +37,7 @@ internal class WindowHandler : IDisposable
         ShaderHandler   = shaderFactory;
         ScreenHook      = screenHook;
         DirectXData     = directXData;
+        BackBufferHook = backBufferHook;    
 
         WindowSystem = new WindowSystem("Mirrors");
 
@@ -46,7 +48,7 @@ internal class WindowHandler : IDisposable
 
     private void _Register()
     {
-        DalamudServices.Framework.RunOnFrameworkThread(() => AddWindow(new DebugWindow(this, DalamudServices, MirrorServices, CameraHandler, RendererHook, ScreenHook, ShaderHandler, DirectXData)));
+        DalamudServices.Framework.RunOnFrameworkThread(() => AddWindow(new DebugWindow(this, DalamudServices, MirrorServices, CameraHandler, RendererHook, ScreenHook, ShaderHandler, DirectXData, BackBufferHook)));
     }
 
     private void AddWindow(MirrorWindow window)

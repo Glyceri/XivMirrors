@@ -63,6 +63,8 @@ internal unsafe class RendererHook : HookableElement
 
     public override void OnDispose()
     {
+        _renderPasses.Clear();
+
         DXGIPresentHook?.Disable();
         DXGIPresentHook?.Dispose();
     }

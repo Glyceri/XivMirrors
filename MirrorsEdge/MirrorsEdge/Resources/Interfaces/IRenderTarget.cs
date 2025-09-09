@@ -1,10 +1,16 @@
+using Dalamud.Bindings.ImGui;
 using SharpDX.Direct3D11;
+using System;
 
 namespace MirrorsEdge.mirrorsedge.Resources.Interfaces;
 
-internal interface IRenderTarget
+internal interface IRenderTarget : IDisposable
 {
-    public ShaderResourceView?  ShaderResourceView  { get; }
-    public Texture2D?           Texture2D           { get; }
-    public RenderTargetView?    RenderTargetView    { get; }
+    public ShaderResourceView?  ShaderResourceView  { get; set; }
+    public Texture2D?           Texture2D           { get; set; }
+    public RenderTargetView?    RenderTargetView    { get; set; }
+
+    public ImTextureID ImGUIHandle { get; }
+
+    public IRenderTarget? Clone();
 }

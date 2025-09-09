@@ -48,25 +48,26 @@ internal unsafe class RendererHook : HookableElement
     public override void Init()
     {
         //ImmediateContextProcessCommandsHook?.Enable();
-        //DXGIPresentHook?.Enable();
+        DXGIPresentHook?.Enable();
         //RenderThreadSetRenderTargetHook?.Enable();
         //SetMatricesHook?.Enable();
     }
 
     private void OnImmediateContextProcessCommands(ImmediateContext* commands, RenderCommandBufferGroup* bufferGroup, uint a3)
     {
-        
+        ImmediateContextProcessCommandsHook!.OriginalDisposeSafe(commands, bufferGroup, a3);
 
-        if (_renderPass?.Invoke(RenderPass.Main) ?? false)
+        try
         {
-
+            if (_renderPass?.Invoke(RenderPass.Main) ?? true)
+            {
+                ImmediateContextProcessCommandsHook!.OriginalDisposeSafe(commands, bufferGroup, a3);
+            }
         }
-
-        ImmediateContextProcessCommandsHook!.Original(commands, bufferGroup, a3);
-
-        
-
-        
+        catch (Exception ex)
+        {
+            MirrorServices.MirrorLog.LogError(ex, "erm");
+        }        
     }
 
     private void DXGIPresentDetour(IntPtr ptr)

@@ -57,8 +57,6 @@ internal unsafe class DebugWindow : MirrorWindow
         RendererHook  = rendererHook;
         ShaderFactory = shaderFactory;
 
-        RendererHook.SetRenderPassListener(OnRenderPass);
-
         ImGuiViewportTextureArgs args = new ImGuiViewportTextureArgs()
         {
             AutoUpdate = true,
@@ -185,6 +183,8 @@ internal unsafe class DebugWindow : MirrorWindow
             return;
         }
 
+        GetBackBuffer();
+
         DrawBackBuffer();
 
         int camCounter = 0;
@@ -200,7 +200,7 @@ internal unsafe class DebugWindow : MirrorWindow
             {
                 ActiveCamera = camera;
 
-                //CameraHandler.SetActiveCamera(ActiveCamera);
+                CameraHandler.SetActiveCamera(ActiveCamera);
 
                 if (ActiveCamera == CameraHandler.GameCamera)
                 {
@@ -311,28 +311,6 @@ internal unsafe class DebugWindow : MirrorWindow
         }
     }
 
-    private bool OnRenderPass(RenderPass renderPass)
-    {
-        if (_disposed)
-        {
-            return true;
-        }
-
-        if (renderPass == RenderPass.Main)
-        {
-            GetBackBuffer();
-
-            return true;
-        }
-
-        if (ActiveCamera == null)
-        {
-            return false;
-        }
-
-        return true;
-    }
-
     protected override void OnDispose()
     {
         if (_disposed)
@@ -342,26 +320,14 @@ internal unsafe class DebugWindow : MirrorWindow
 
         _disposed = true;
 
-        if (Device != null)
-        {
-            DeviceContext context = Device.ImmediateContext;
-
-            context.OutputMerger.ResetTargets();
-            context.Flush();
-            context.ClearState();
-        }
-
         Device      = null;
         SwapChain   = null;
-
-        BackBufferResourceView?.Dispose();
-        BackBufferResourceViewCopy?.Dispose();
 
         BackBufferTexture?.Dispose();
         BackBufferTextureCopy?.Dispose();
 
         BackBufferRenderTargetView?.Dispose();
-        BackBufferRenderTargetViewCopy?.Dispose();
+        BackBufferRenderTargetViewCopy?.Dispose();  
 
         InputLayout?.Dispose();
         SamplerState?.Dispose();
@@ -376,8 +342,6 @@ internal unsafe class DebugWindow : MirrorWindow
 
         BackBufferRenderTargetView = null;
         BackBufferRenderTargetViewCopy = null;
-
-        RendererHook.SetRenderPassListener(null);
 
         FullScreenTexture?.Dispose();
     }

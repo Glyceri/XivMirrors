@@ -42,7 +42,7 @@ internal class WindowHandler : IDisposable
 
     private void _Register()
     {
-        AddWindow(new DebugWindow(this, DalamudServices, MirrorServices, CameraHandler, TextureHooker, RendererHook, ShaderFactory));
+        DalamudServices.Framework.RunOnFrameworkThread(() => AddWindow(new DebugWindow(this, DalamudServices, MirrorServices, CameraHandler, TextureHooker, RendererHook, ShaderFactory)));
     }
 
     private void AddWindow(MirrorWindow window)

@@ -1,3 +1,4 @@
+using MirrorsEdge.mirrorsedge.Hooking.HookableElements;
 using MirrorsEdge.MirrorsEdge.Hooking.HookableElements;
 using MirrorsEdge.MirrorsEdge.Hooking.Interfaces;
 using MirrorsEdge.MirrorsEdge.Services;
@@ -16,6 +17,7 @@ internal class HookManager : IDisposable
     public readonly CameraHooks         CameraHooks;
     public readonly TextureHooker       TextureHooker;
     public readonly RendererHook        RendererHook;
+    public readonly ScreenHook          ScreenHook;
 
     public HookManager(DalamudServices dalamudServices, MirrorServices mirrorServices)
     {
@@ -25,6 +27,7 @@ internal class HookManager : IDisposable
         Register(CameraHooks    = new CameraHooks(DalamudServices, MirrorServices));
         Register(TextureHooker  = new TextureHooker(DalamudServices, MirrorServices));
         Register(RendererHook   = new RendererHook(DalamudServices, MirrorServices, CameraHooks));
+        Register(ScreenHook     = new ScreenHook(DalamudServices, MirrorServices));
     }
 
     private void Register(IHookableElement element)

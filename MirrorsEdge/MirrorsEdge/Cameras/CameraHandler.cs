@@ -65,11 +65,13 @@ internal unsafe class CameraHandler : IDisposable
         RegisterNewCamera(nativeCamera);
 
         GameCamera = nativeCamera;
+
+        _ = CreateCamera();
     }
 
     public void SetActiveCamera(BaseCamera? camera)
     {
-        MirrorServices.MirrorLog.Log("Overwriting Active Camera");
+        //MirrorServices.MirrorLog.Log("Overwriting Active Camera");
 
         FFXIVClientStructs.FFXIV.Client.Graphics.Scene.CameraManager* cameraManager = FFXIVClientStructs.FFXIV.Client.Graphics.Scene.CameraManager.Instance();
 
@@ -94,7 +96,7 @@ internal unsafe class CameraHandler : IDisposable
         else
         {
             CameraHooks.SetOverride(null);
-        }
+        }       
     }
 
     public void ResetCamera()

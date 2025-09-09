@@ -1,6 +1,7 @@
 using Dalamud.Bindings.ImGui;
 using Dalamud.Interface.Textures;
 using Dalamud.Interface.Textures.TextureWraps;
+using Dalamud.Plugin.Services;
 using MirrorsEdge.MirrorsEdge.Cameras;
 using MirrorsEdge.MirrorsEdge.Hooking.Enum;
 using MirrorsEdge.MirrorsEdge.Hooking.HookableElements;
@@ -57,6 +58,8 @@ internal unsafe class DebugWindow : MirrorWindow
         RendererHook  = rendererHook;
         ShaderFactory = shaderFactory;
 
+        DalamudServices.Framework.Update += Update;
+
         ImGuiViewportTextureArgs args = new ImGuiViewportTextureArgs()
         {
             AutoUpdate = true,
@@ -64,6 +67,8 @@ internal unsafe class DebugWindow : MirrorWindow
             TakeBeforeImGuiRender = true,
             ViewportId = ImGui.GetMainViewport().ID,
         };
+
+        RendererHook.SetRenderPassListener(OnRenderPass, OnPostRender);
 
         //FullScreenTexture = DalamudServices.TextureProvider.CreateFromImGuiViewportAsync(args).Result;
 
@@ -84,6 +89,13 @@ internal unsafe class DebugWindow : MirrorWindow
         }
 
         Open();
+    }
+
+    private void Update(IFramework framework)
+    {
+        CameraHandler.SetActiveCamera(CameraHandler.Cameras[1]);
+
+        DalamudServices.Framework.RunOnFrameworkThread(() => CameraHandler.SetActiveCamera(CameraHandler.Cameras[0]));
     }
 
     private void CreateRenderTarget(Size2 size)
@@ -183,7 +195,7 @@ internal unsafe class DebugWindow : MirrorWindow
             return;
         }
 
-        GetBackBuffer();
+        //GetBackBuffer();
 
         DrawBackBuffer();
 
@@ -301,14 +313,52 @@ internal unsafe class DebugWindow : MirrorWindow
             context.InputAssembler.PrimitiveTopology = PrimitiveTopology.TriangleList;
 
             context.Draw(3, 0);
-
-            context.PixelShader.SetShaderResource(0, null);
-            context.PixelShader.SetSampler(0, null);
         }
         catch (Exception ex)
         {
             MirrorServices.MirrorLog.LogException(ex);
         }
+    }
+
+    private bool OnRenderPass(RenderPass renderPass)
+    {
+        if (_disposed)
+        {
+            return true;
+        }
+
+        
+
+        if (renderPass == RenderPass.Main)
+        {
+          
+
+            return true;
+        }
+
+        if (ActiveCamera == CameraHandler.Cameras[1])
+        {
+            GetBackBuffer();
+        }
+
+        return true;
+    }
+
+    private bool OnPostRender(RenderPass renderPass)
+    {
+        if (renderPass == RenderPass.Main)
+        {
+
+            
+        }
+        else
+        {
+           
+
+
+        }
+
+        return true;
     }
 
     protected override void OnDispose()
@@ -320,7 +370,6 @@ internal unsafe class DebugWindow : MirrorWindow
 
         _disposed = true;
 
-        Device      = null;
         SwapChain   = null;
 
         BackBufferTexture?.Dispose();
@@ -334,6 +383,8 @@ internal unsafe class DebugWindow : MirrorWindow
         PixelShader?.Dispose();
         VertexShader?.Dispose();
 
+        Device?.Dispose();
+
         BackBufferResourceView = null;
         BackBufferResourceViewCopy = null;
 
@@ -344,5 +395,9 @@ internal unsafe class DebugWindow : MirrorWindow
         BackBufferRenderTargetViewCopy = null;
 
         FullScreenTexture?.Dispose();
+
+        RendererHook.SetRenderPassListener(null, null);
+
+        DalamudServices.Framework.Update -= Update;
     }
 }

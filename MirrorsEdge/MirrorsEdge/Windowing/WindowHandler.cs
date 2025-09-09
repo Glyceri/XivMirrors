@@ -2,6 +2,7 @@ using Dalamud.Interface.Windowing;
 using MirrorsEdge.MirrorsEdge.Cameras;
 using MirrorsEdge.MirrorsEdge.Hooking.HookableElements;
 using MirrorsEdge.MirrorsEdge.Services;
+using MirrorsEdge.MirrorsEdge.Shaders;
 using MirrorsEdge.MirrorsEdge.Windowing.Interfaces;
 using MirrorsEdge.MirrorsEdge.Windowing.Windows;
 using System;
@@ -19,16 +20,18 @@ internal class WindowHandler : IDisposable
     private readonly CameraHandler      CameraHandler;
     private readonly TextureHooker      TextureHooker;
     private readonly RendererHook       RendererHook;
+    private readonly ShaderFactory      ShaderFactory;
 
     private readonly WindowSystem       WindowSystem;
 
-    public WindowHandler(DalamudServices dalamudServices, MirrorServices mirrorServices, CameraHandler cameraHandler, TextureHooker textureHooker, RendererHook rendererHook)
+    public WindowHandler(DalamudServices dalamudServices, MirrorServices mirrorServices, CameraHandler cameraHandler, TextureHooker textureHooker, RendererHook rendererHook, ShaderFactory shaderFactory)
     {
         DalamudServices = dalamudServices;
         MirrorServices  = mirrorServices;
         CameraHandler   = cameraHandler;
         TextureHooker   = textureHooker;
         RendererHook    = rendererHook;
+        ShaderFactory   = shaderFactory;
 
         WindowSystem = new WindowSystem("Mirrors");
 
@@ -39,7 +42,7 @@ internal class WindowHandler : IDisposable
 
     private void _Register()
     {
-        AddWindow(new DebugWindow(this, DalamudServices, MirrorServices, CameraHandler, TextureHooker, RendererHook));
+        AddWindow(new DebugWindow(this, DalamudServices, MirrorServices, CameraHandler, TextureHooker, RendererHook, ShaderFactory));
     }
 
     private void AddWindow(MirrorWindow window)

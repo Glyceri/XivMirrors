@@ -4,7 +4,7 @@ struct VS_OUT
     float2 uv  : TEXCOORD0;
 };
 
-VS_OUT main(uint index : SV_VertexID)
+VS_OUT VSMain(uint id : SV_VertexID)
 {
     VS_OUT output;
 
@@ -22,8 +22,8 @@ VS_OUT main(uint index : SV_VertexID)
         float2(2.0, 1.0)
     };
 
-    output.pos = float4(vertices[index], 0.0, 1.0);
-    output.uv  = uvs[index];
+    output.pos = float4(vertices[id], 0.0, 1.0);
+    output.uv  = uvs[id];
 
     return output;
 }

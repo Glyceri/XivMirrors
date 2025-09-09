@@ -7,7 +7,7 @@ struct PS_IN
     float2 uv  : TEXCOORD0;
 };
 
-float4 main(PS_IN input) : SV_TARGET
+float4 PSMain(PS_IN input) : SV_TARGET
 {
     float4 color = inputTex.Sample(samp, input.uv);
 

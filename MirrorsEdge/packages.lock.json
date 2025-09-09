@@ -23,6 +23,16 @@
           "NETStandard.Library": "1.6.1"
         }
       },
+      "SharpDX.D3DCompiler": {
+        "type": "Direct",
+        "requested": "[4.2.0, )",
+        "resolved": "4.2.0",
+        "contentHash": "Rnsd6Ilp127xbXqhTit8WKFQUrXwWxqVGpglyWDNkIBCk0tWXNQEjrJpsl0KAObzyZaa33+EXAikLVt5fnd3GA==",
+        "dependencies": {
+          "NETStandard.Library": "1.6.1",
+          "SharpDX": "4.2.0"
+        }
+      },
       "SharpDX.Direct3D11": {
         "type": "Direct",
         "requested": "[4.2.0, )",

@@ -10,6 +10,7 @@
 
     <ItemGroup>
     <PackageReference Include="SharpDX" Version="4.2.0" />
+    <PackageReference Include="SharpDX.D3DCompiler" Version="4.2.0" />
     <PackageReference Include="SharpDX.Direct3D11" Version="4.2.0" />
     <PackageReference Include="SharpDX.DXGI" Version="4.2.0" />
     <PackageReference Include="SharpDX.Mathematics" Version="4.2.0" />
@@ -22,7 +23,7 @@
   </ItemGroup>
 
   <ItemGroup>
-      <EmbeddedResource Include="mirrorsedge\shaders\files\FragmentShader.hlsl" LogicalName ="fragmentshader.hlsl" />
-      <EmbeddedResource Include="mirrorsedge\shaders\files\VertexShader.hlsl"   LogicalName ="vertexshader.hlsl"/>
+      <EmbeddedResource Include="mirrorsedge\shaders\files\FragmentShader.hlsl" LogicalName="FragmentShader.hlsl" />
+      <EmbeddedResource Include="mirrorsedge\shaders\files\VertexShader.hlsl" LogicalName="VertexShader.hlsl" />
   </ItemGroup>
 </Project>

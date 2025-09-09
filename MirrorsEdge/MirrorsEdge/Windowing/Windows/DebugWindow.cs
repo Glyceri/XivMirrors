@@ -5,9 +5,12 @@ using MirrorsEdge.MirrorsEdge.Cameras;
 using MirrorsEdge.MirrorsEdge.Hooking.Enum;
 using MirrorsEdge.MirrorsEdge.Hooking.HookableElements;
 using MirrorsEdge.MirrorsEdge.Services;
+using MirrorsEdge.MirrorsEdge.Shaders;
 using SharpDX;
+using SharpDX.Direct3D;
 using SharpDX.Direct3D11;
 using SharpDX.DXGI;
+using SharpDX.Mathematics.Interop;
 using System;
 using Device = SharpDX.Direct3D11.Device;
 using KernelDevice = FFXIVClientStructs.FFXIV.Client.Graphics.Kernel.Device;
@@ -16,6 +19,8 @@ namespace MirrorsEdge.MirrorsEdge.Windowing.Windows;
 
 internal unsafe class DebugWindow : MirrorWindow
 {
+    private bool _disposed = false;
+
     protected override System.Numerics.Vector2 MinSize      { get; } = new System.Numerics.Vector2(350, 136);
     protected override System.Numerics.Vector2 MaxSize      { get; } = new System.Numerics.Vector2(2000, 2000);
     protected override System.Numerics.Vector2 DefaultSize  { get; } = new System.Numerics.Vector2(800, 400);
@@ -23,6 +28,7 @@ internal unsafe class DebugWindow : MirrorWindow
     private readonly CameraHandler  CameraHandler;
     private readonly TextureHooker  TextureHooker;
     private readonly RendererHook   RendererHook;
+    private readonly ShaderFactory  ShaderFactory;
 
     private BaseCamera? ActiveCamera;
 
@@ -33,13 +39,23 @@ internal unsafe class DebugWindow : MirrorWindow
     private Texture2D?          BackBufferTexture;   
     private RenderTargetView?   BackBufferRenderTargetView;
 
+    private ShaderResourceView? BackBufferResourceViewCopy;
+    private Texture2D?          BackBufferTextureCopy;
+    private RenderTargetView?   BackBufferRenderTargetViewCopy;
+
     private readonly IDalamudTextureWrap FullScreenTexture;
 
-    public DebugWindow(WindowHandler windowHandler, DalamudServices dalamudServices, MirrorServices mirrorServices, CameraHandler cameraHandler, TextureHooker textureHooker, RendererHook rendererHook) : base(windowHandler, dalamudServices, mirrorServices, "Mirrors Dev Window", ImGuiWindowFlags.None)
+    private readonly VertexShader?  VertexShader;
+    private readonly PixelShader?   PixelShader;
+    private readonly InputLayout?   InputLayout;
+    private readonly SamplerState?  SamplerState;
+
+    public DebugWindow(WindowHandler windowHandler, DalamudServices dalamudServices, MirrorServices mirrorServices, CameraHandler cameraHandler, TextureHooker textureHooker, RendererHook rendererHook, ShaderFactory shaderFactory) : base(windowHandler, dalamudServices, mirrorServices, "Mirrors Dev Window", ImGuiWindowFlags.None)
     {
         CameraHandler = cameraHandler;
         TextureHooker = textureHooker;
         RendererHook  = rendererHook;
+        ShaderFactory = shaderFactory;
 
         RendererHook.SetRenderPassListener(OnRenderPass);
 
@@ -59,6 +75,10 @@ internal unsafe class DebugWindow : MirrorWindow
 
             SwapChain   = new SwapChain((nint)kernelDevice->SwapChain->DXGISwapChain);
             Device      = SwapChain.GetDevice<Device>();
+
+            _ = ShaderFactory.GetVertexShader(Device, "VertexShader.hlsl", [], out VertexShader, out InputLayout, out SamplerState);
+            _ = ShaderFactory.GetFragmentShader(Device, "FragmentShader.hlsl", out PixelShader);
+
         }
         catch (Exception ex)
         {
@@ -100,6 +120,10 @@ internal unsafe class DebugWindow : MirrorWindow
             BackBufferTexture               = new Texture2D(Device, texture2DDescription);
             BackBufferRenderTargetView      = new RenderTargetView(Device, BackBufferTexture);
             BackBufferResourceView          = new ShaderResourceView(Device, BackBufferTexture);
+
+            BackBufferTextureCopy           = new Texture2D(Device, texture2DDescription);
+            BackBufferRenderTargetViewCopy  = new RenderTargetView(Device, BackBufferTextureCopy);
+            BackBufferResourceViewCopy      = new ShaderResourceView(Device, BackBufferTextureCopy);
         }
         catch (Exception e)
         {
@@ -129,11 +153,11 @@ internal unsafe class DebugWindow : MirrorWindow
                 return;
             }
 
-            if (BackBufferResourceView != null)
+            if (BackBufferResourceViewCopy != null)
             {
-                if (!BackBufferResourceView.IsDisposed)
+                if (!BackBufferResourceViewCopy.IsDisposed)
                 {
-                    ImGui.Image(new ImTextureID(BackBufferResourceView.NativePointer), new(size.Width, size.Height));
+                    ImGui.Image(new ImTextureID(BackBufferResourceViewCopy.NativePointer), new(size.Width, size.Height));
                 }
             }
 
@@ -193,69 +217,90 @@ internal unsafe class DebugWindow : MirrorWindow
         }
     }
 
-    public void StripAlpha(DeviceContext context)
+    private void GetBackBuffer()
     {
-        BlendStateDescription blendDesc = new BlendStateDescription();
+        if (_disposed)
+        {
+            return;
+        }
 
-        blendDesc.RenderTarget[0].IsBlendEnabled = true;
-        blendDesc.RenderTarget[0].SourceBlend = BlendOption.One;
-        blendDesc.RenderTarget[0].DestinationBlend = BlendOption.Zero;
-        blendDesc.RenderTarget[0].BlendOperation = BlendOperation.Add;
-        blendDesc.RenderTarget[0].SourceAlphaBlend = BlendOption.One;
-        blendDesc.RenderTarget[0].DestinationAlphaBlend = BlendOption.Zero;
-        blendDesc.RenderTarget[0].AlphaBlendOperation = BlendOperation.Add;
-        blendDesc.RenderTarget[0].RenderTargetWriteMask = ColorWriteMaskFlags.All;
+        if (Device == null)
+        {
+            return;
+        }
 
-        BlendState blendState = new BlendState(Device, blendDesc);
+        if (SwapChain == null)
+        {
+            return;
+        }
 
-        context.OutputMerger.SetBlendState(blendState, null, -1);
+        CreateRenderTarget(new Size2(1920, 1080));
+
+        try
+        {
+            DeviceContext context = Device.ImmediateContext;
+
+            BackBufferResourceViewCopy?.Dispose();
+            BackBufferTextureCopy?.Dispose();
+
+            BackBufferResourceViewCopy      = null;
+            BackBufferTextureCopy           = null;
+
+            // ---- back buffer ----
+            Texture2D backBuffer = SwapChain.GetBackBuffer<Texture2D>(0);
+
+            Texture2DDescription desc = backBuffer.Description;
+
+            desc.BindFlags      = BindFlags.ShaderResource | BindFlags.RenderTarget;
+            desc.Usage          = ResourceUsage.Default;
+            desc.CpuAccessFlags = CpuAccessFlags.None;
+
+            BackBufferTextureCopy = new Texture2D(Device, desc);
+
+            context.CopyResource(backBuffer, BackBufferTextureCopy);
+
+            BackBufferResourceViewCopy = new ShaderResourceView(Device, BackBufferTextureCopy);
+            // ---- end back buffer ----
+
+            context.OutputMerger.SetRenderTargets(BackBufferRenderTargetView!);
+
+            Viewport vp = new Viewport(0, 0, BackBufferTextureCopy.Description.Width, BackBufferTextureCopy.Description.Height);
+
+            context.Rasterizer.SetViewport(vp);
+
+            context.VertexShader.Set(VertexShader);
+            context.PixelShader.Set(PixelShader);
+
+            context.PixelShader.SetShaderResource(0, BackBufferResourceViewCopy);
+            context.PixelShader.SetSampler(0, SamplerState);
+
+            context.ClearRenderTargetView(BackBufferRenderTargetView, new RawColor4(0, 0, 0, 1.0f));
+
+            BlendStateDescription blendDesc = new BlendStateDescription();
+
+            blendDesc.RenderTarget[0].IsBlendEnabled = false;
+            BlendState blendState = new BlendState(Device, blendDesc);
+
+            context.OutputMerger.SetBlendState(blendState);
+
+            context.InputAssembler.InputLayout = null;
+            context.InputAssembler.PrimitiveTopology = PrimitiveTopology.TriangleList;
+
+            context.Draw(3, 0);
+
+            context.PixelShader.SetShaderResource(0, null);
+        }
+        catch (Exception ex)
+        {
+            MirrorServices.MirrorLog.LogException(ex);
+        }
     }
 
     private bool OnRenderPass(RenderPass renderPass)
     {
         if (renderPass == RenderPass.Main)
         {
-            return true;
-
-            try
-            {
-                DeviceContext context = Device.ImmediateContext;
-
-                BackBufferResourceView?.Dispose();
-                BackBufferTexture?.Dispose();
-                BackBufferResourceView = null;
-                BackBufferTexture = null;
-
-                using (Texture2D            backBuffer    = SwapChain.GetBackBuffer<Texture2D>(0))
-                using (ShaderResourceView   backBufferSRV = new ShaderResourceView(Device, backBuffer))
-                using (RenderTargetView     backBufferRTV = new RenderTargetView(Device, BackBufferTexture))
-                {
-                    Texture2DDescription backBufferDescription = backBuffer.Description;
-
-                    backBufferDescription.BindFlags = BindFlags.ShaderResource | BindFlags.RenderTarget;
-                    backBufferDescription.Usage = ResourceUsage.Default;
-                    backBufferDescription.CpuAccessFlags = CpuAccessFlags.None;
-                    backBufferDescription.OptionFlags = ResourceOptionFlags.None;
-
-                    BackBufferTexture = new Texture2D(Device, backBufferDescription);
-
-                    context.OutputMerger.SetRenderTargets(BackBufferRenderTargetView);
-
-                    context.PixelShader.SetShaderResource(0, backBufferSRV);
-                    //context.PixelShader.Set(pixelShaderThatStripsAlpha);
-                    //context.VertexShader.Set(fullscreenVS);
-
-                    context.Draw(3, 0);
-
-                    context.CopyResource(backBuffer, BackBufferTexture);
-
-                    BackBufferResourceView = new ShaderResourceView(Device, BackBufferTexture);
-                }
-            }
-            catch (Exception ex)
-            {
-                MirrorServices.MirrorLog.LogException(ex);
-            }
+            GetBackBuffer();
 
             return true;
         }
@@ -270,9 +315,27 @@ internal unsafe class DebugWindow : MirrorWindow
 
     protected override void OnDispose()
     {
+        if (_disposed)
+        {
+            return;
+        }
+
+        _disposed = true;
+
+        VertexShader?.Dispose();
+        PixelShader?.Dispose();
+        InputLayout?.Dispose();
+        SamplerState?.Dispose();
+
+        RendererHook.SetRenderPassListener(null);
+
         BackBufferResourceView?.Dispose();
         BackBufferTexture?.Dispose();
         BackBufferRenderTargetView?.Dispose();
+
+        BackBufferResourceViewCopy?.Dispose();
+        BackBufferTextureCopy?.Dispose();
+        BackBufferRenderTargetViewCopy?.Dispose();
 
         FullScreenTexture?.Dispose();
     }

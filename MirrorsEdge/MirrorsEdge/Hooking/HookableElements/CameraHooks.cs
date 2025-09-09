@@ -10,8 +10,6 @@ namespace MirrorsEdge.MirrorsEdge.Hooking.HookableElements;
 
 internal unsafe class CameraHooks : HookableElement
 {
-    private Camera myCamera = new Camera();
-
     private delegate Camera* CameraManager_GetActiveCameraDelegate(CameraManager* cameraManager);
     private delegate Camera* Camera_CtorDelegate(Camera* camera);
 

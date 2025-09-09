@@ -60,14 +60,14 @@ internal unsafe class CameraHooks : HookableElement
 
         //MirrorServices.MirrorLog.Log("Get Active Camera!");
 
-        return CameraManager_GetActiveCameraHook!.OriginalDisposeSafe(cameraManager);
+        return CameraManager_GetActiveCameraHook!.Original(cameraManager);
     }
 
     private Camera* Camera_CtorDetour(Camera* camera)
     {
         MirrorServices.MirrorLog.Log("Camera constructor triggered");
 
-        return Camera_CtorHook!.OriginalDisposeSafe(camera);
+        return Camera_CtorHook!.Original(camera);
     }
 
     public override void OnDispose()

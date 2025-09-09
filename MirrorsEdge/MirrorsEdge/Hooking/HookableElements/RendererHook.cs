@@ -40,22 +40,29 @@ internal unsafe class RendererHook : HookableElement
     public override void Init()
     {
         DXGIPresentHook?.Enable();
-        RenderThreadSetRenderTargetHook?.Enable();
-        SetMatricesHook?.Enable();
+        //RenderThreadSetRenderTargetHook?.Enable();
+        //SetMatricesHook?.Enable();
     }
 
     private void DXGIPresentDetour(long a, long b)
     {
-        if (_renderPass?.Invoke(RenderPass.Mirror) ?? false)
+        try
         {
-            DXGIPresentHook!.Original(a, b);
+            if (_renderPass?.Invoke(RenderPass.Mirror) ?? false)
+            {
+                DXGIPresentHook!.Original(a, b);
+            }
+
+            CameraHooks.SetOverride(null);
+
+            if (_renderPass?.Invoke(RenderPass.Main) ?? true)
+            {
+                DXGIPresentHook!.Original(a, b);
+            }
         }
-
-        CameraHooks.SetOverride(null);
-
-        if (_renderPass?.Invoke(RenderPass.Main) ?? true)
+        catch (Exception ex)
         {
-            DXGIPresentHook!.Original(a, b);
+            MirrorServices.MirrorLog.LogError(ex, "erm");
         }
     }
 

@@ -3,6 +3,7 @@ using Dalamud.Interface.Utility;
 using Dalamud.Interface.Windowing;
 using MirrorsEdge.MirrorsEdge.Services;
 using MirrorsEdge.MirrorsEdge.Windowing.Interfaces;
+using System;
 using System.Numerics;
 
 namespace MirrorsEdge.MirrorsEdge.Windowing;
@@ -78,6 +79,13 @@ internal abstract class MirrorWindow : Window, IMirrorWindow
 
     public void Dispose()
     {
-        OnDispose();
+        try
+        {
+            OnDispose();
+        }
+        catch(Exception e)
+        {
+            MirrorServices.MirrorLog.LogException(e);
+        }
     }
 }

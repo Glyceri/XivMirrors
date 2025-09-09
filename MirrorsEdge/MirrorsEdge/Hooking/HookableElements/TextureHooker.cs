@@ -11,16 +11,12 @@ internal unsafe class TextureHooker : HookableElement
 {
     private delegate Texture* Device_CreateTexture2DDelegate(Device* device, int* size, byte mipLevel, TextureFormat format, uint flags, int unk);
 
-    [Signature("E8 ?? ?? ?? ?? 48 89 86 30 09 00 00", DetourName = nameof(Device_CreateTexture2DDetour))]
-    private readonly Hook<Device_CreateTexture2DDelegate>? Device_CreateTexture2DHook = null;
-
-    public readonly List<nint> Textures = new List<nint>();
-
-    private readonly ID3D11DeviceContext* Context;
+    //[Signature("E8 ?? ?? ?? ?? 48 89 86 30 09 00 00", DetourName = nameof(Device_CreateTexture2DDetour))]
+    //private readonly Hook<Device_CreateTexture2DDelegate>? Device_CreateTexture2DHook = null;
 
     public TextureHooker(DalamudServices dalamudServices, MirrorServices mirrorServices) : base(dalamudServices, mirrorServices)
     {
-        Context = ((ID3D11DeviceContext*)Device.Instance()->D3D11DeviceContext);
+        
     }
 
     public override void Init()
@@ -28,22 +24,9 @@ internal unsafe class TextureHooker : HookableElement
         //Device_CreateTexture2DHook?.Enable();
     }
 
-    private Texture* Device_CreateTexture2DDetour(Device* device, int* size, byte mipLevel, TextureFormat format, uint flags, int unk)
-    {
-        MirrorServices.MirrorLog.Log("Created texture 2D");
-
-        Texture* texture = Device_CreateTexture2DHook!.OriginalDisposeSafe(device, size, mipLevel, format, flags, unk);
-
-        if (texture != null)
-        {
-            Textures.Add((nint)texture);
-        }
-
-        return texture;
-    }
 
     public override void OnDispose()
     {
-        Device_CreateTexture2DHook?.Dispose();
+        //Device_CreateTexture2DHook?.Dispose();
     }
 }

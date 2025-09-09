@@ -55,6 +55,8 @@ internal class BackBufferHook : HookableElement
             return;
         }
 
+        MirrorServices.MirrorLog.Log("Back Buffer");
+
         try
         {
             GetBackBuffer();

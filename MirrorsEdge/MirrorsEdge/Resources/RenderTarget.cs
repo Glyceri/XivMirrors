@@ -13,8 +13,8 @@ internal class RenderTarget : IRenderTarget
 
     public ImTextureID ImGUIHandle => ShaderResourceView != null ? new ImTextureID(ShaderResourceView.NativePointer).Handle : ImTextureID.Null;
 
-    private readonly Texture2DDescription Description;
-    private readonly DirectXData DirectXData;
+    private readonly Texture2DDescription   Description;
+    private readonly DirectXData            DirectXData;
 
     public RenderTarget(DirectXData directXData, Texture2DDescription texture2DDescription)
     {

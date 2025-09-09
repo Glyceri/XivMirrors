@@ -1,6 +1,7 @@
 using Dalamud.Bindings.ImGui;
 using MirrorsEdge.mirrorsedge.Hooking.HookableElements;
 using MirrorsEdge.mirrorsedge.Memory;
+using MirrorsEdge.mirrorsedge.Resources.Interfaces;
 using MirrorsEdge.MirrorsEdge.Cameras;
 using MirrorsEdge.MirrorsEdge.Cameras.CameraTypes;
 using MirrorsEdge.MirrorsEdge.Hooking.Enum;
@@ -33,6 +34,10 @@ internal unsafe class DebugWindow : MirrorWindow
 
     private System.Numerics.Vector2 _screenSize = System.Numerics.Vector2.Zero;
 
+    private bool cameraHasChanged = false;
+
+    private IRenderTarget? RenderTarget;
+
     public DebugWindow(WindowHandler windowHandler, DalamudServices dalamudServices, MirrorServices mirrorServices, CameraHandler cameraHandler, RendererHook rendererHook, ScreenHook screenHook, ShaderHandler shaderFactory, DirectXData directXData, BackBufferHook backBufferHook) : base(windowHandler, dalamudServices, mirrorServices, "Mirrors Dev Window", ImGuiWindowFlags.None)
     {
         CameraHandler = cameraHandler;
@@ -45,7 +50,29 @@ internal unsafe class DebugWindow : MirrorWindow
         ScreenHook.RegisterScreenSizeChangeCallback(OnScreensizeChanged);
         ScreenHook.SetupSize(ref _screenSize);
 
+        RendererHook.RegisterRenderPassListener(OnRenderPass);
+
         Open();
+    }
+    
+    private void OnRenderPass(RenderPass renderPass)
+    {
+        MirrorServices.MirrorLog.Log("Debug Window");
+
+        if (renderPass == RenderPass.Pre)
+        {
+            if (cameraHasChanged)
+            {
+                cameraHasChanged = false;
+
+                //if (CameraHandler.ActiveCamera != CameraHandler.GameCamera)
+                {
+                    RenderTarget?.Dispose();
+
+                    RenderTarget = BackBufferHook.BackBuffer?.Clone();
+                }
+            }
+        }
     }
 
     private void OnScreensizeChanged(System.Numerics.Vector2 screenSize)
@@ -65,7 +92,12 @@ internal unsafe class DebugWindow : MirrorWindow
                 return;
             }
 
+            
             ImGui.Image(BackBufferHook.BackBuffer?.ImGUIHandle ?? ImTextureID.Null, new(size.Width, size.Height));
+
+            
+
+            ImGui.Image(RenderTarget?.ImGUIHandle ?? ImTextureID.Null, new(size.Width, size.Height));
         }
         catch (Exception ex)
         {
@@ -96,6 +128,8 @@ internal unsafe class DebugWindow : MirrorWindow
             if (ImGui.Button($"[{camCounter}]: {camera.GetType().Name}"))
             {
                 CameraHandler.SetActiveCamera(camera);
+
+                DalamudServices.Framework.RunOnTick(() => cameraHasChanged = true, delayTicks: 2);
             }
 
             ImGui.SameLine();
@@ -129,6 +163,8 @@ internal unsafe class DebugWindow : MirrorWindow
         }
 
         _disposed = true;
+
+        RendererHook.DeregisterRenderPassListener(OnRenderPass);
 
         ScreenHook.DeregisterScreenSizeChangeCallback(OnScreensizeChanged);
     }

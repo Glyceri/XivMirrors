@@ -31,6 +31,8 @@ internal unsafe class RendererHook : HookableElement
     {
         try
         {
+            MirrorServices.MirrorLog.Log("-------------");
+
             foreach (RenderPassDelegate renderPass in _renderPasses)
             {
                 renderPass?.Invoke(RenderPass.Pre);

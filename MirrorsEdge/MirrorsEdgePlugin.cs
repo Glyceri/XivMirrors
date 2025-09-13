@@ -1,11 +1,13 @@
 using Dalamud.Plugin;
-using MirrorsEdge.mirrorsedge.Memory;
-using MirrorsEdge.MirrorsEdge.Cameras;
-using MirrorsEdge.MirrorsEdge.Hooking;
-using MirrorsEdge.MirrorsEdge.Resources;
-using MirrorsEdge.MirrorsEdge.Services;
-using MirrorsEdge.MirrorsEdge.Shaders;
-using MirrorsEdge.MirrorsEdge.Windowing;
+using FFXIVClientStructs.FFXIV.Client.Graphics.Render;
+using Lumina.Data.Structs;
+using MirrorsEdge.XIVMirrors.Memory;
+using MirrorsEdge.XIVMirrors.Cameras;
+using MirrorsEdge.XIVMirrors.Hooking;
+using MirrorsEdge.XIVMirrors.Resources;
+using MirrorsEdge.XIVMirrors.Services;
+using MirrorsEdge.XIVMirrors.Shaders;
+using MirrorsEdge.XIVMirrors.Windowing;
 using System.Reflection;
 
 namespace MirrorsEdge;

@@ -1,9 +1,13 @@
+using Dalamud.Interface.Textures;
+using Dalamud.Interface.Textures.TextureWraps;
+using FFXIVClientStructs.FFXIV.Client.Graphics.Kernel;
+using FFXIVClientStructs.FFXIV.Client.Graphics.Render;
+using MirrorsEdge.XIVMirrors.Hooking.Enum;
 using MirrorsEdge.XIVMirrors.Memory;
+using MirrorsEdge.XIVMirrors.Mirrors;
+using MirrorsEdge.XIVMirrors.Rendering;
 using MirrorsEdge.XIVMirrors.Resources;
 using MirrorsEdge.XIVMirrors.Resources.Interfaces;
-using MirrorsEdge.XIVMirrors.Hooking;
-using MirrorsEdge.XIVMirrors.Hooking.Enum;
-using MirrorsEdge.XIVMirrors.Hooking.HookableElements;
 using MirrorsEdge.XIVMirrors.Services;
 using MirrorsEdge.XIVMirrors.Shaders;
 using SharpDX;
@@ -12,11 +16,10 @@ using SharpDX.Direct3D11;
 using SharpDX.DXGI;
 using SharpDX.Mathematics.Interop;
 using System;
-using MirrorsEdge.XIVMirrors.Mirrors;
 
 namespace MirrorsEdge.XIVMirrors.Hooking.HookableElements;
 
-internal class BackBufferHook : HookableElement
+internal unsafe class BackBufferHook : HookableElement
 {
     private readonly DirectXData    DirectXData;
     private readonly RendererHook   RendererHook;
@@ -28,8 +31,14 @@ internal class BackBufferHook : HookableElement
 
     private System.Numerics.Vector2 _screenSize = System.Numerics.Vector2.Zero;
 
-
     private readonly Mirror Mirror;
+
+    private readonly IDalamudTextureWrap DalamudNightSkyTexture;
+    private          Texture*            DalamudTexturePointer;
+    public Texture2D?           HolyAmountOfWork;
+    public ShaderResourceView?  HolyShaderResourceView;
+
+    public int offset = 0;
 
     public BackBufferHook(DalamudServices dalamudServices, MirrorServices mirrorServices, DirectXData directXData, RendererHook rendererHook, ScreenHook screenHook, ShaderHandler shaderHandler) : base(dalamudServices, mirrorServices)
     {
@@ -39,6 +48,30 @@ internal class BackBufferHook : HookableElement
         ShaderHandler   = shaderHandler;
 
         Mirror = new Mirror(directXData);
+
+        Texture2DDescription texture2DDescription = new Texture2DDescription
+        {
+            Width               = (int)_screenSize.X,
+            Height              = (int)_screenSize.Y,
+            MipLevels           = 1,
+            ArraySize           = 1,
+            Format              = Format.R8G8B8A8_UNorm,
+            SampleDescription   = new SampleDescription(1, 0),
+            Usage               = ResourceUsage.Default,
+            BindFlags           = BindFlags.RenderTarget | BindFlags.ShaderResource,
+            CpuAccessFlags      = CpuAccessFlags.None,
+            OptionFlags         = ResourceOptionFlags.None,
+        };
+
+        DalamudNightSkyTexture  = DalamudServices.TextureProvider.GetFromManifestResource(GetType().Assembly, "NightSky.png").RentAsync().Result;
+
+        //DalamudTexturePointer   = (Texture*)DalamudServices.TextureProvider.ConvertToKernelTexture(DalamudNightSkyTexture, true);
+
+        DalamudTexturePointer = ((MyRenderTargetManager*)RenderTargetManager.Instance())->DepthBuffer;
+
+            HolyAmountOfWork = new Texture2D((nint)DalamudTexturePointer->D3D11Texture2D);
+
+            HolyShaderResourceView = new ShaderResourceView(DirectXData.Device, HolyAmountOfWork);
 
         ScreenHook.SetupSize(ref _screenSize);
         ScreenHook.RegisterScreenSizeChangeCallback(OnScreenSizeChanged);
@@ -146,28 +179,21 @@ internal class BackBufferHook : HookableElement
             return;
         }
 
-        using var backBufferTex = DirectXData.SwapChain.GetBackBuffer<Texture2D>(0);
-        using var backBufferRTV = new RenderTargetView(DirectXData.Device, backBufferTex);
-
-        DirectXData.Context.OutputMerger.SetRenderTargets(backBufferRTV);
-
-        //Viewport vp = new Viewport(0, 0, internalRenderTarget.Texture2D!.Description.Width, internalRenderTarget.Texture2D!.Description.Height);
-        Viewport vp = new Viewport(0, 0, 1280, 720);
-
+        Viewport vp = new Viewport(0, 0, internalRenderTarget.Texture2D!.Description.Width, internalRenderTarget.Texture2D!.Description.Height);
 
         DirectXData.Context.Rasterizer.SetViewport(vp);
 
-        DirectXData.Context.VertexShader.Set(ShaderHandler.MirrorShader.VertexShader);
-        DirectXData.Context.PixelShader.Set(ShaderHandler.MirrorShader.FragmentShader);
+        DirectXData.Context.VertexShader.Set(ShaderHandler.UIShader.VertexShader);
+        DirectXData.Context.PixelShader.Set(ShaderHandler.UIShader.FragmentShader);
 
         DirectXData.Context.PixelShader.SetShaderResource(0, internalRenderTarget.ShaderResourceView!);
-        DirectXData.Context.PixelShader.SetSampler(0, ShaderHandler.MirrorShader.SamplerState);
+        DirectXData.Context.PixelShader.SetSampler(0, ShaderHandler.UIShader.SamplerState);
 
         DirectXData.Context.ClearRenderTargetView(BackBuffer.RenderTargetView, new RawColor4(0, 0, 0, 1.0f));
 
         BlendStateDescription blendDesc = new BlendStateDescription();
 
-        blendDesc.RenderTarget[0].IsBlendEnabled = false;
+        blendDesc.RenderTarget[0].IsBlendEnabled = true;
         blendDesc.RenderTarget[0].RenderTargetWriteMask = ColorWriteMaskFlags.All;
 
         DirectXData.Context.OutputMerger.SetBlendState(new BlendState(DirectXData.Device, blendDesc));
@@ -184,7 +210,14 @@ internal class BackBufferHook : HookableElement
 
         CopyBackBuffer();
 
-        RemoveAlpha();
+        try
+        {
+            RemoveAlpha();
+        }
+        catch (Exception ex)
+        {
+            MirrorServices.MirrorLog.LogException(ex);
+        }
     }
 
     public override void OnDispose()
@@ -196,5 +229,15 @@ internal class BackBufferHook : HookableElement
 
         internalRenderTarget?.Dispose();
         BackBuffer?.Dispose();
+
+        DalamudNightSkyTexture?.Dispose();
+
+        if (DalamudTexturePointer != null)
+        {
+            //DalamudTexturePointer->DecRef();
+        }
+
+        HolyAmountOfWork.Dispose();
+        HolyShaderResourceView.Dispose();
     }
 }

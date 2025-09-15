@@ -1,19 +1,12 @@
 using Dalamud.Bindings.ImGui;
 using MirrorsEdge.XIVMirrors.Hooking.HookableElements;
 using MirrorsEdge.XIVMirrors.Memory;
-using MirrorsEdge.XIVMirrors.Resources.Interfaces;
 using MirrorsEdge.XIVMirrors.Cameras;
-using MirrorsEdge.XIVMirrors.Cameras.CameraTypes;
 using MirrorsEdge.XIVMirrors.Hooking.Enum;
-using MirrorsEdge.XIVMirrors.Hooking.HookableElements;
 using MirrorsEdge.XIVMirrors.Services;
 using MirrorsEdge.XIVMirrors.Shaders;
-using SharpDX;
-using SharpDX.Direct3D;
-using SharpDX.Direct3D11;
-using SharpDX.DXGI;
-using SharpDX.Mathematics.Interop;
 using System;
+using MirrorsEdge.XIVMirrors.Resources;
 
 namespace MirrorsEdge.XIVMirrors.Windowing.Windows;
 
@@ -32,11 +25,7 @@ internal unsafe class DebugWindow : MirrorWindow
     private readonly DirectXData    DirectXData;
     private readonly BackBufferHook BackBufferHook;
 
-    private System.Numerics.Vector2 _screenSize = System.Numerics.Vector2.Zero;
-
     private bool cameraHasChanged = false;
-
-    private IRenderTarget? RenderTarget;
 
     public DebugWindow(WindowHandler windowHandler, DalamudServices dalamudServices, MirrorServices mirrorServices, CameraHandler cameraHandler, RendererHook rendererHook, ScreenHook screenHook, ShaderHandler shaderFactory, DirectXData directXData, BackBufferHook backBufferHook) : base(windowHandler, dalamudServices, mirrorServices, "Mirrors Dev Window", ImGuiWindowFlags.None)
     {
@@ -48,7 +37,6 @@ internal unsafe class DebugWindow : MirrorWindow
         BackBufferHook  = backBufferHook;
 
         ScreenHook.RegisterScreenSizeChangeCallback(OnScreensizeChanged);
-        ScreenHook.SetupSize(ref _screenSize);
 
         RendererHook.RegisterRenderPassListener(OnRenderPass);
 
@@ -57,50 +45,35 @@ internal unsafe class DebugWindow : MirrorWindow
     
     private void OnRenderPass(RenderPass renderPass)
     {
-        if (renderPass == RenderPass.Pre)
-        {
-            if (cameraHasChanged)
-            {
-                cameraHasChanged = false;
-
-                //if (CameraHandler.ActiveCamera != CameraHandler.GameCamera)
-                {
-                    RenderTarget?.Dispose();
-
-                    RenderTarget = BackBufferHook.BackBuffer?.Clone();
-                }
-            }
-        }
+        
     }
 
-    private void OnScreensizeChanged(System.Numerics.Vector2 screenSize)
+    private void OnScreensizeChanged(int newWidth, int newHeight)
     {
-        _screenSize = screenSize;
+        
+    }
+
+    private void DrawMappedTexture(MappedTexture? mappedTexture)
+    {
+        if (mappedTexture == null)
+        {
+            return;
+        }
+
+        if (!mappedTexture.Value.IsValid)
+        {
+            return;
+        }
+
+        ImGui.Image(mappedTexture.Value.Handle, new System.Numerics.Vector2(500, 500));
     }
 
     private void DrawBackBuffer()
     {
-        try
-        {
-            System.Numerics.Vector2 contentRegionAvail = ImGui.GetContentRegionAvail();
-            Size2 size = new Size2((int)contentRegionAvail.X, (int)contentRegionAvail.Y);
-
-            if (size.Width <= 0 || size.Height <= 0)
-            {
-                return;
-            }
-
-            
-            ImGui.Image(BackBufferHook.BackBuffer?.ImGUIHandle ?? ImTextureID.Null, new(size.Width, size.Height));
-
-            
-
-            ImGui.Image(RenderTarget?.ImGUIHandle ?? ImTextureID.Null, new(size.Width, size.Height));
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine(ex.Message);
-        }
+        DrawMappedTexture(BackBufferHook.BackBufferNoUI);
+        DrawMappedTexture(BackBufferHook.BackBufferWithUI);
+        DrawMappedTexture(BackBufferHook.DepthBufferNoTransparency);
+        DrawMappedTexture(BackBufferHook.DepthBufferWithTransparency);
     }
 
     protected override void OnDraw()
@@ -109,8 +82,6 @@ internal unsafe class DebugWindow : MirrorWindow
         {
             return;
         }
-
-        //GetBackBuffer();
 
         DrawBackBuffer();
 

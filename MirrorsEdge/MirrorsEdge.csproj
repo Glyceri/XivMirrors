@@ -24,6 +24,6 @@
       <EmbeddedResource Include="XIVMirrors\shaders\files\VertexShader.hlsl" LogicalName="VertexShader.hlsl" />
       <EmbeddedResource Include="XIVMirrors\shaders\files\MirrorFragmentShader.hlsl" LogicalName="MirrorFragmentShader.hlsl" />
       <EmbeddedResource Include="XIVMirrors\shaders\files\MirrorVertexShader.hlsl" LogicalName="MirrorVertexShader.hlsl" />
-      <EmbeddedResource Include="XIVMirrors\shaders\files\nightsky.png" LogicalName="NightSky.png"/>
+      <EmbeddedResource Include="XIVMirrors\shaders\files\nightsky.png" LogicalName="NightSky.png" />
   </ItemGroup>
 </Project>

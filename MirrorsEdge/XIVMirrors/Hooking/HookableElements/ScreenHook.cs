@@ -1,6 +1,8 @@
+using Dalamud.Hooking;
 using Dalamud.Interface.Utility;
-using Dalamud.Plugin.Services;
-using MirrorsEdge.XIVMirrors.Hooking;
+using Dalamud.Utility.Signatures;
+using FFXIVClientStructs.FFXIV.Client.System.Framework;
+using MirrorsEdge.XIVMirrors.Hooking.Enum;
 using MirrorsEdge.XIVMirrors.Services;
 using System;
 using System.Collections.Generic;
@@ -8,75 +10,104 @@ using System.Numerics;
 
 namespace MirrorsEdge.XIVMirrors.Hooking.HookableElements;
 
-internal class ScreenHook : HookableElement
+internal unsafe class ScreenHook : HookableElement
 {
-    private Vector2 lastSize = Vector2.Zero;
+    private readonly RendererHook RendererHook;
 
-    private readonly List<Action<Vector2>> screenSizeListeners = new List<Action<Vector2>>();
+    public delegate void ScreensizeDelegate(int newWidth, int newHeight);
 
-    public ScreenHook(DalamudServices dalamudServices, MirrorServices mirrorServices) : base(dalamudServices, mirrorServices)
+    private delegate bool GameWindow_SetWindowSizeDelegate(GameWindow* gameWindow, int newWidth, int newHeight);
+
+    [Signature("E8 ?? ?? ?? ?? 42 0F B7 84 BF 90 00 00 00", DetourName = nameof(GameWindow_SetWindowSizeDetour))]
+    private readonly Hook<GameWindow_SetWindowSizeDelegate>? GameWindow_SetWindowSizeHook = null;
+
+    private readonly List<ScreensizeDelegate> screenSizeListeners = [];
+
+    private Vector2 _lastWindowSize;
+
+    public ScreenHook(DalamudServices dalamudServices, MirrorServices mirrorServices, RendererHook rendererHook) : base(dalamudServices, mirrorServices)
     {
+        RendererHook = rendererHook;
+
+        RendererHook.RegisterRenderPassListener(OnRenderPass);
     }
 
     public override void Init()
     {
-        DalamudServices.Framework.Update += OnScreenHookUpdate;
+        GameWindow_SetWindowSizeHook?.Enable();
     }
-
-    private void OnScreenHookUpdate(IFramework framework)
+    
+    private void HandleImGuiScreenSize()
     {
-        Vector2 size = ImGuiHelpers.MainViewport.Size;
-
-        if (lastSize != size)
+        if (_lastWindowSize == ImGuiHelpers.MainViewport.WorkSize)
         {
-            lastSize = size;
-
-            OnSizeChange();
+            return;
         }
+
+        _lastWindowSize = ImGuiHelpers.MainViewport.WorkSize;
+
+        RunCallbacks((int)_lastWindowSize.X, (int)_lastWindowSize.Y);
+
+        MirrorServices.MirrorLog.LogVerbose(ImGuiHelpers.MainViewport.WorkSize);
     }
 
-    private void OnSizeChange()
+    private void OnRenderPass(RenderPass renderPass)
     {
-        MirrorServices.MirrorLog.LogInfo($"Mirrors just detected that your screen size changed. It is now: {lastSize}. This WILL impact your current mirrors.");
+        if (renderPass == RenderPass.Post)
+        {
+            return;
+        }
 
-        foreach (Action<Vector2> screenSizeCallback in screenSizeListeners)
+        HandleImGuiScreenSize();
+    }
+
+    private void RunCallbacks(int newWidth, int newHeight)
+    {
+        foreach (ScreensizeDelegate screenSizeDelegate in screenSizeListeners)
         {
             try
             {
-                screenSizeCallback?.Invoke(lastSize);
+                screenSizeDelegate?.Invoke(newWidth, newHeight);
             }
-            catch (Exception e)
+            catch (Exception ex)
             {
-                MirrorServices.MirrorLog.LogException(e);
+                MirrorServices.MirrorLog.LogError(ex, "An error occured when relaying screen size changed.");
             }
         }
     }
 
-    public void RegisterScreenSizeChangeCallback(Action<Vector2> onScreenSizeChange)
+    private bool GameWindow_SetWindowSizeDetour(GameWindow* gameWindow, int newWidth, int newHeight)
+    {
+        MirrorServices.MirrorLog.LogVerbose($"Detected a new window size: [{newWidth}, {newHeight}]");
+
+        RunCallbacks(newWidth, newHeight);
+
+        return GameWindow_SetWindowSizeHook!.Original(gameWindow, newWidth, newHeight);
+    }
+
+    public void RegisterScreenSizeChangeCallback(ScreensizeDelegate onScreenSizeChange)
     {
         _ = screenSizeListeners.Remove(onScreenSizeChange);
 
         screenSizeListeners.Add(onScreenSizeChange);
     }
 
-    public void DeregisterScreenSizeChangeCallback(Action<Vector2> onScreenSizeChange)
+    public void DeregisterScreenSizeChangeCallback(ScreensizeDelegate onScreenSizeChange)
     {
         _ = screenSizeListeners.Remove(onScreenSizeChange);
     }
 
-    public Vector2 GetCurrentScreenSize()
+    public void OnImGuiDraw()
     {
-        return lastSize;
-    }
-
-    public void SetupSize(ref Vector2 size)
-    {
-        size = lastSize;
+        HandleImGuiScreenSize();
     }
 
     public override void OnDispose()
     {
-        DalamudServices.Framework.Update -= OnScreenHookUpdate;
+        RendererHook.DeregisterRenderPassListener(OnRenderPass);
+
+        GameWindow_SetWindowSizeHook?.Disable();
+        GameWindow_SetWindowSizeHook?.Dispose();
 
         screenSizeListeners.Clear();
     }

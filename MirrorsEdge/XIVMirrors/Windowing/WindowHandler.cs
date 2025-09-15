@@ -93,6 +93,8 @@ internal class WindowHandler : IDisposable
 
     private void Draw()
     {
+        ScreenHook.OnImGuiDraw();
+
         _internalCounter = 0;
 
         WindowSystem.Draw();

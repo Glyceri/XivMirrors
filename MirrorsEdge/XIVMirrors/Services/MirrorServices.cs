@@ -7,11 +7,16 @@ internal class MirrorServices
 {
     private readonly DalamudServices DalamudServices;
 
-    public readonly IMirrorLog MirrorLog;
+    public readonly Configuration   Configuration;
+    public readonly IMirrorLog      MirrorLog;
 
     public MirrorServices(DalamudServices dalamudServices)
     {
         DalamudServices = dalamudServices;
+
+        Configuration = DalamudServices.DalamudPlugin.GetPluginConfig() as Configuration ?? new Configuration();
+
+        Configuration.Initialise(DalamudServices.DalamudPlugin);
 
         MirrorLog = new MirrorLog(DalamudServices.PluginLog);
     }

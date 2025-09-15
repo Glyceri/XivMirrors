@@ -10,22 +10,19 @@ namespace MirrorsEdge.XIVMirrors.Resources;
 /// <summary>
 /// A MappedTexture holds a registered Texture2D and a corresponding ShaderResourceView.
 /// </summary>
-internal unsafe readonly struct MappedTexture : IDisposable
+internal unsafe class MappedTexture : BasicTexture
 {
-    public readonly ShaderResourceView  ShaderResourceView;
-    public readonly Texture2D           Texture;
+    public override Texture2D           Texture             { get; }
+    public override ShaderResourceView  ShaderResourceView  { get; }
 
-    private readonly bool     isNative;
-    private readonly Texture* nativeTexture;
-
-    public readonly uint Width;
-    public readonly uint Height;
+    protected readonly bool     isNative;
+    protected readonly Texture* nativeTexture;
 
     /// <summary>
     /// Register a native game texture as a mapped texture.
     /// </summary>
     /// <param name="nativeTexture">Native game texture.</param>
-    public MappedTexture(Texture* nativeTexture)
+    public MappedTexture(DirectXData directXData, Texture* nativeTexture) : base(directXData)
     {
         isNative            = true;
         
@@ -43,7 +40,7 @@ internal unsafe readonly struct MappedTexture : IDisposable
     /// </summary>
     /// <param name="directXData">The DirectXData object.</param>
     /// <param name="texture2D">The previously created Texture2D. [This object takes ownership]</param>
-    public MappedTexture(DirectXData directXData, ref Texture2D texture2D)
+    public MappedTexture(DirectXData directXData, ref Texture2D texture2D) : base(directXData)
     {
         isNative            = false;
         nativeTexture       = null;
@@ -60,7 +57,7 @@ internal unsafe readonly struct MappedTexture : IDisposable
     /// </summary>
     /// <param name="texture2D">The externally created Texture2D. [This object takes ownership]</param>
     /// <param name="shaderResourceView">The externally created ShaderResourceView. [This object takes ownership]</param>
-    public MappedTexture(ref Texture2D texture2D, ref ShaderResourceView shaderResourceView)
+    public MappedTexture(DirectXData directXData, ref Texture2D texture2D, ref ShaderResourceView shaderResourceView) : base(directXData)
     {
         isNative            = false;
         nativeTexture       = null;
@@ -72,20 +69,20 @@ internal unsafe readonly struct MappedTexture : IDisposable
         Height              = (uint)texture2D.Description.Height;
     }
 
-    public uint ActualWidth   
+    public override uint ActualWidth   
         => GetActualWidth();
 
-    public uint ActualHeight  
+    public override uint ActualHeight  
         => GetActualHeight();
 
-    public nint TextureHandle 
+    public override nint TextureHandle 
         => Texture.NativePointer;
 
-    public ImTextureID Handle 
+    public override ImTextureID Handle 
         => new ImTextureID(ShaderResourceView.NativePointer);
 
-    public ScaledResolution ScaledResolution 
-        => new ScaledResolution(Width, Height, ActualWidth, ActualHeight);
+    public override ScaledResolution ScaledResolution 
+        => new ScaledResolution((int)Width, (int)Height, (int)ActualWidth, (int)ActualHeight);
 
     public bool IsValid =>
         GetValidStatus();
@@ -132,11 +129,23 @@ internal unsafe readonly struct MappedTexture : IDisposable
             return false;
         }
 
+        if (nativeTexture->AllocatedWidth != Width)
+        {
+            return false;
+        }
+
+        if (nativeTexture->AllocatedHeight != Height)
+        {
+            return false;
+        }
+
         return true;
     }
 
-    public void Dispose()
+    public override void Dispose()
     {
+        base.Dispose();
+
         if (isNative)
         {
             return;

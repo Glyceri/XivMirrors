@@ -20,10 +20,13 @@
   </ItemGroup>
 
   <ItemGroup>
-      <EmbeddedResource Include="XIVMirrors\shaders\files\FragmentShader.hlsl" LogicalName="FragmentShader.hlsl" />
-      <EmbeddedResource Include="XIVMirrors\shaders\files\VertexShader.hlsl" LogicalName="VertexShader.hlsl" />
+      <EmbeddedResource Include="XIVMirrors\shaders\files\AlphaFragmentShader.hlsl" LogicalName="AlphaFragmentShader.hlsl" />
+      <EmbeddedResource Include="XIVMirrors\shaders\files\AlphaVertexShader.hlsl" LogicalName="AlphaVertexShader.hlsl" />
+      <EmbeddedResource Include="XIVMirrors\shaders\files\ClippedFragmentShader.hlsl" LogicalName="ClippedFragmentShader.hlsl" />
+      <EmbeddedResource Include="XIVMirrors\shaders\files\ClippedVertexShader.hlsl" LogicalName="ClippedVertexShader.hlsl" />
       <EmbeddedResource Include="XIVMirrors\shaders\files\MirrorFragmentShader.hlsl" LogicalName="MirrorFragmentShader.hlsl" />
       <EmbeddedResource Include="XIVMirrors\shaders\files\MirrorVertexShader.hlsl" LogicalName="MirrorVertexShader.hlsl" />
       <EmbeddedResource Include="XIVMirrors\shaders\files\nightsky.png" LogicalName="NightSky.png" />
   </ItemGroup>
+
 </Project>

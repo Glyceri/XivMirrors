@@ -2,19 +2,11 @@ using System.Runtime.InteropServices;
 
 namespace MirrorsEdge.XIVMirrors.Resources.Struct;
 
-[StructLayout(LayoutKind.Sequential)]
-internal readonly struct ScaledResolution
+[StructLayout(LayoutKind.Sequential, Pack = 16)]
+internal readonly struct ScaledResolution(int assignedWidth, int assignedHeight, int actualWidth, int actualHeight)
 {
-    public readonly uint AssignedWidth;
-    public readonly uint AssignedHeight;
-    public readonly uint ActualWidth;
-    public readonly uint ActualHeight;
-
-    public ScaledResolution(uint assignedWidth, uint assignedHeight, uint actualWidth, uint actualHeight)
-    {
-        AssignedWidth   = assignedWidth;
-        AssignedHeight  = assignedHeight;
-        ActualWidth     = actualWidth;
-        ActualHeight    = actualHeight;
-    }
+    public readonly int AssignedWidth  = assignedWidth;
+    public readonly int AssignedHeight = assignedHeight;
+    public readonly int ActualWidth    = actualWidth;
+    public readonly int ActualHeight   = actualHeight;
 }

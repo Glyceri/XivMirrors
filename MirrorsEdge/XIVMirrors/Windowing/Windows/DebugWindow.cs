@@ -53,26 +53,23 @@ internal unsafe class DebugWindow : MirrorWindow
         
     }
 
-    private void DrawMappedTexture(MappedTexture? mappedTexture)
+    private void DrawMappedTexture(RenderTarget? mappedTexture)
     {
         if (mappedTexture == null)
         {
             return;
         }
 
-        if (!mappedTexture.Value.IsValid)
-        {
-            return;
-        }
-
-        ImGui.Image(mappedTexture.Value.Handle, new System.Numerics.Vector2(500, 500));
+        ImGui.Image(mappedTexture.Handle, new System.Numerics.Vector2(500, 500));
     }
 
     private void DrawBackBuffer()
     {
         DrawMappedTexture(BackBufferHook.BackBufferNoUI);
+        ImGui.SameLine();
         DrawMappedTexture(BackBufferHook.BackBufferWithUI);
         DrawMappedTexture(BackBufferHook.DepthBufferNoTransparency);
+        ImGui.SameLine();
         DrawMappedTexture(BackBufferHook.DepthBufferWithTransparency);
     }
 

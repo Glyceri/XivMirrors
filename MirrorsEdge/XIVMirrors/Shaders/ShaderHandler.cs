@@ -11,7 +11,8 @@ internal class ShaderHandler : IDisposable
     private readonly ResourceLoader ResourceLoader;
     private readonly DirectXData    DirectXData;
 
-    public readonly  Shader         UIShader;
+    public readonly  Shader         AlphaShader;
+    public readonly  Shader         ClippedShader;
     public readonly  Shader         MirrorShader;
 
     public readonly ShaderFactory Factory;
@@ -24,13 +25,15 @@ internal class ShaderHandler : IDisposable
 
         Factory         = new ShaderFactory(MirrorServices, ResourceLoader, DirectXData);
 
-        UIShader        = new Shader(Factory, "VertexShader.hlsl", "FragmentShader.hlsl", []);
-        MirrorShader    = new Shader(Factory, "MirrorVertexShader.hlsl", "MirrorFragmentShader.hlsl", []);
+        AlphaShader     = new Shader(Factory, "AlphaVertexShader.hlsl",     "AlphaFragmentShader.hlsl",     []);
+        ClippedShader   = new Shader(Factory, "ClippedVertexShader.hlsl",   "ClippedFragmentShader.hlsl",   []);
+        MirrorShader    = new Shader(Factory, "MirrorVertexShader.hlsl",    "MirrorFragmentShader.hlsl",    []);
     }
 
     public void Dispose()
     {
-        UIShader.Dispose();
-        MirrorShader.Dispose();
+        AlphaShader?.Dispose();
+        ClippedShader?.Dispose();
+        MirrorShader?.Dispose();
     }
 }

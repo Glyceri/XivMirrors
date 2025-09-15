@@ -1,54 +1,77 @@
 using Dalamud.Bindings.ImGui;
 using MirrorsEdge.XIVMirrors.Memory;
-using MirrorsEdge.XIVMirrors.Resources.Interfaces;
+using MirrorsEdge.XIVMirrors.Resources.Struct;
+using SharpDX.Direct3D;
 using SharpDX.Direct3D11;
+using SharpDX.DXGI;
 
 namespace MirrorsEdge.XIVMirrors.Resources;
 
-internal class RenderTarget : IRenderTarget
+internal unsafe class RenderTarget : BasicTexture
 {
-    public ShaderResourceView?  ShaderResourceView  { get; set; }
-    public Texture2D?           Texture2D           { get; set; }
-    public RenderTargetView?    RenderTargetView    { get; set; }
+    public override Texture2D           Texture             { get; }
+    public override ShaderResourceView  ShaderResourceView  { get; }
 
-    public ImTextureID ImGUIHandle => ShaderResourceView != null ? new ImTextureID(ShaderResourceView.NativePointer).Handle : ImTextureID.Null;
+    public readonly RenderTargetView    RenderTargetView;
 
-    private readonly Texture2DDescription   Description;
-    private readonly DirectXData            DirectXData;
-
-    public RenderTarget(DirectXData directXData, Texture2DDescription texture2DDescription)
+    public RenderTarget(DirectXData directXData, Texture2D reference) : base(directXData)
     {
-        DirectXData         = directXData;
-        Description         = texture2DDescription;
+        Texture2DDescription desc = new Texture2DDescription()
+        {
+            Width               = reference.Description.Width,
+            Height              = reference.Description.Height,
+            MipLevels           = 1,
+            ArraySize           = 1,
+            Format              = Format.R8G8B8A8_UNorm,
+            SampleDescription   = new SharpDX.DXGI.SampleDescription(1, 0),
+            Usage               = ResourceUsage.Default,
+            BindFlags           = BindFlags.RenderTarget | BindFlags.ShaderResource,
+            CpuAccessFlags      = CpuAccessFlags.None,
+            OptionFlags         = ResourceOptionFlags.None
+        };
 
-        Texture2D           = new Texture2D(directXData.Device, texture2DDescription);
-        RenderTargetView    = new RenderTargetView(directXData.Device, Texture2D);
-        ShaderResourceView  = new ShaderResourceView(directXData.Device, Texture2D);
+        Texture = new Texture2D(directXData.Device, desc);
+
+        ShaderResourceViewDescription srvDesc = new ShaderResourceViewDescription()
+        {
+            Dimension   = ShaderResourceViewDimension.Texture2D,
+            Format      = Format.R8G8B8A8_UNorm,
+            Texture2D   = new ShaderResourceViewDescription.Texture2DResource()
+            {
+                MipLevels       = 1,
+                MostDetailedMip = 0
+            }
+        };
+
+        ShaderResourceView  = new ShaderResourceView(directXData.Device, Texture, srvDesc);
+
+        RenderTargetView    = new RenderTargetView(directXData.Device, Texture);
+
+        Width   = (uint)Texture.Description.Width;
+        Height  = (uint)Texture.Description.Height;
     }
 
-    public IRenderTarget? Clone()
+    public override ImTextureID Handle
+        => new ImTextureID(ShaderResourceView.NativePointer);
+
+    public override uint ActualWidth 
+        => Width;
+
+    public override uint ActualHeight 
+        => Height;
+
+    public override nint TextureHandle 
+        => Texture.NativePointer;
+
+    public override ScaledResolution ScaledResolution
+        => new ScaledResolution((int)Width, (int)Height, (int)ActualWidth, (int)ActualHeight);
+
+    public override void Dispose()
     {
-        RenderTarget target = new RenderTarget(DirectXData, Description);
+        base.Dispose();
 
-        if (Texture2D == null)
-        {
-            return null;
-        }
-
-        if (target.Texture2D == null)
-        {
-            return null;
-        }
-
-        DirectXData.Context.CopyResource(Texture2D, target.Texture2D);
-
-        return target;
-    }
-
-    public void Dispose()
-    {
-        Texture2D?.Dispose();
         ShaderResourceView?.Dispose();
+        Texture?.Dispose();
         RenderTargetView?.Dispose();
     }
 }

@@ -17,7 +17,7 @@ internal unsafe class MappedTexture : BasicTexture
 
     protected readonly bool     isNative;
     protected readonly Texture* nativeTexture;
-
+    
     /// <summary>
     /// Register a native game texture as a mapped texture.
     /// </summary>

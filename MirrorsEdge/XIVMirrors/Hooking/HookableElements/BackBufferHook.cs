@@ -1,3 +1,4 @@
+using FFXIVClientStructs.FFXIV.Client.Game.UI;
 using FFXIVClientStructs.FFXIV.Client.Graphics.Kernel;
 using FFXIVClientStructs.FFXIV.Client.Graphics.Render;
 using MirrorsEdge.XIVMirrors.Hooking.Enum;
@@ -11,9 +12,11 @@ using MirrorsEdge.XIVMirrors.Shaders;
 using SharpDX;
 using SharpDX.Direct3D;
 using SharpDX.Direct3D11;
+using SharpDX.DXGI;
 using SharpDX.Mathematics.Interop;
 using System;
 using System.Diagnostics.CodeAnalysis;
+using static FFXIVClientStructs.FFXIV.Client.UI.Misc.GroupPoseModule;
 
 namespace MirrorsEdge.XIVMirrors.Hooking.HookableElements;
 
@@ -25,6 +28,8 @@ internal unsafe class BackBufferHook : HookableElement
     private readonly ShaderHandler  ShaderHandler;
 
     private readonly Mirror Mirror;
+
+    public MappedTexture? ThatOneSecretTexture;
 
     private MappedTexture?  backBufferWithUI;
     private MappedTexture?  backBufferNoUI;
@@ -41,6 +46,30 @@ internal unsafe class BackBufferHook : HookableElement
     public  RenderTarget?   DepthBufferNoTransparency     => rtNonTransparentDepthBuffer;
     public  RenderTarget?   DepthBufferWithTransparency   => rtTransparentDepthBuffer;
 
+    private readonly SharpDX.Direct3D11.Buffer VertexBuffer;
+    private readonly SharpDX.Direct3D11.Buffer IndexBuffer;
+
+    struct Vertex
+    {
+        public Vector3 Position;
+        public Vector2 TexCoord;
+    }
+
+    // Fullscreen quad in NDC (-1..1 space)
+    Vertex[] vertices = new[]
+    {
+            new Vertex { Position = new Vector3(-1f, -1f, 0f), TexCoord = new Vector2(0f, 1f) },
+            new Vertex { Position = new Vector3(-1f,  1f, 0f), TexCoord = new Vector2(0f, 0f) },
+            new Vertex { Position = new Vector3( 1f,  1f, 0f), TexCoord = new Vector2(1f, 0f) },
+            new Vertex { Position = new Vector3( 1f, -1f, 0f), TexCoord = new Vector2(1f, 1f) },
+        };
+
+    uint[] indices = new uint[]
+    {
+        0, 1, 2,
+        0, 2, 3
+    };
+
     public BackBufferHook(DalamudServices dalamudServices, MirrorServices mirrorServices, DirectXData directXData, RendererHook rendererHook, ScreenHook screenHook, ShaderHandler shaderHandler) : base(dalamudServices, mirrorServices)
     {
         DirectXData     = directXData;
@@ -51,6 +80,15 @@ internal unsafe class BackBufferHook : HookableElement
         Mirror = new Mirror(directXData);
 
         ScreenHook.RegisterScreenSizeChangeCallback(OnScreenSizeChanged);
+
+        VertexBuffer = SharpDX.Direct3D11.Buffer.Create(DirectXData.Device, BindFlags.VertexBuffer, vertices);
+        IndexBuffer  = SharpDX.Direct3D11.Buffer.Create(DirectXData.Device, BindFlags.IndexBuffer, indices);
+
+
+        if (((MyDevice*)DirectXData.KernelDevice)->someTexture != null)
+        {
+            ThatOneSecretTexture = new MappedTexture(DirectXData, ((MyDevice*)DirectXData.KernelDevice)->someTexture);
+        }
     }
 
     public override void Init()
@@ -84,11 +122,13 @@ internal unsafe class BackBufferHook : HookableElement
                 //return;
             }
 
-            CleanAlpha(ref backBufferWithUI, rtBackBufferWithUI);
-            CleanAlpha(ref backBufferNoUI,   rtBackBufferNoUI);
-
             CleanCutout(ref nonTransparentDepthBuffer, rtNonTransparentDepthBuffer);
             CleanCutout(ref transparentDepthBuffer, rtTransparentDepthBuffer);
+
+            //CleanAlpha(ref backBufferWithUI, rtBackBufferWithUI);
+            //CleanAlpha(ref backBufferNoUI,   rtBackBufferNoUI);
+
+           
         }
         catch(Exception e)
         {
@@ -117,7 +157,14 @@ internal unsafe class BackBufferHook : HookableElement
             return;
         }
 
-        Viewport viewport = new Viewport(0, 0, (int)mappedTexture.Width, (int)mappedTexture.Height);
+        using var backBufferTex = DirectXData.SwapChain.GetBackBuffer<Texture2D>(0);
+        using var backBufferRTV = new RenderTargetView(DirectXData.Device, backBufferTex);
+
+        DirectXData.Context.OutputMerger.SetRenderTargets(backBufferRTV);
+
+        //Viewport viewport = new Viewport(0, 0, (int)mappedTexture.Width, (int)mappedTexture.Height);
+        Viewport viewport = new Viewport(0, 0, (int)mappedTexture.Width / 2, (int)mappedTexture.Height / 2);
+
         DirectXData.Context.Rasterizer.SetViewport(viewport);
 
         DirectXData.Context.VertexShader.Set(ShaderHandler.AlphaShader.VertexShader);
@@ -126,7 +173,7 @@ internal unsafe class BackBufferHook : HookableElement
         DirectXData.Context.PixelShader.SetShaderResource(0, mappedTexture.ShaderResourceView);
         DirectXData.Context.PixelShader.SetSampler(0, ShaderHandler.AlphaShader.SamplerState);
 
-        DirectXData.Context.OutputMerger.SetRenderTargets(renderTarget.RenderTargetView);
+        //DirectXData.Context.OutputMerger.SetRenderTargets(renderTarget.RenderTargetView);
 
         DirectXData.Context.ClearRenderTargetView(renderTarget.RenderTargetView, new RawColor4(1, 0, 1, 1f));
 
@@ -143,6 +190,8 @@ internal unsafe class BackBufferHook : HookableElement
         DirectXData.Context.Draw(3, 0);
 
         DirectXData.Context.PixelShader.SetShaderResource(0, null);
+
+        DirectXData.Context.OutputMerger.ResetTargets();
     }
 
     private void CleanCutout(ref MappedTexture? mappedTexture, RenderTarget? renderTarget)
@@ -166,7 +215,24 @@ internal unsafe class BackBufferHook : HookableElement
             return;
         }
 
-        Viewport viewport = new Viewport(0, 0, (int)mappedTexture.Width, (int)mappedTexture.Height);
+
+        if (RendererHook.ProbablyReshadeBackbuffer == null)
+        {
+            return;
+        }
+
+        // Grab what the game has set
+        MirrorServices.MirrorLog.LogVerbose("YUPP");
+
+        using Texture2D backBuffer = DirectXData.SwapChain.GetBackBuffer<Texture2D>(0);
+        using RenderTargetView backBufferRTV = new RenderTargetView(DirectXData.Device, backBuffer);
+
+        DirectXData.Context.OutputMerger.SetRenderTargets(RendererHook.ProbablyReshadeBackbuffer, backBufferRTV);
+
+
+        //Viewport viewport = new Viewport(0, 0, (int)mappedTexture.Width, (int)mappedTexture.Height);
+        Viewport viewport = new Viewport(0, 0, (int)mappedTexture.Width / 2, (int)mappedTexture.Height / 2);
+
         DirectXData.Context.Rasterizer.SetViewport(viewport);
 
         DirectXData.Context.VertexShader.Set(ShaderHandler.ClippedShader.VertexShader);
@@ -176,25 +242,59 @@ internal unsafe class BackBufferHook : HookableElement
 
         DirectXData.Context.VertexShader.SetConstantBuffer(0, mappedTexture.ConstantBuffer);
         DirectXData.Context.PixelShader.SetShaderResource(0, mappedTexture.ShaderResourceView);
+
         DirectXData.Context.PixelShader.SetSampler(0, ShaderHandler.ClippedShader.SamplerState);
 
-        DirectXData.Context.OutputMerger.SetRenderTargets(renderTarget.RenderTargetView);
+        //DirectXData.Context.OutputMerger.SetRenderTargets(renderTarget.RenderTargetView);
 
-        DirectXData.Context.ClearRenderTargetView(renderTarget.RenderTargetView, new RawColor4(1, 0, 1, 1f));
+        //DirectXData.Context.ClearRenderTargetView(currentRTV[0], new RawColor4(1, 0, 1, 1f));
 
-        BlendStateDescription blendDesc = new BlendStateDescription();
+        // Depth state
+        var depthStencilDesc = new DepthStencilStateDescription
+        {
+           IsDepthEnabled = true,
+            DepthWriteMask = DepthWriteMask.All,
+            DepthComparison = Comparison.GreaterEqual // or GreaterEqual if the game uses reversed-Z
+        };
+        using var depthState = new DepthStencilState(DirectXData.Device, depthStencilDesc);
+        DirectXData.Context.OutputMerger.SetDepthStencilState(depthState);
 
-        blendDesc.RenderTarget[0].IsBlendEnabled = false;
-        blendDesc.RenderTarget[0].RenderTargetWriteMask = ColorWriteMaskFlags.All;
+        var blendDesc = new BlendStateDescription()
+        {
+            AlphaToCoverageEnable = false,
+            IndependentBlendEnable = false,
+        };
 
-        DirectXData.Context.OutputMerger.SetBlendState(new BlendState(DirectXData.Device, blendDesc));
+        blendDesc.RenderTarget[0] = new RenderTargetBlendDescription()
+        {
+            IsBlendEnabled = true,
+            SourceBlend = BlendOption.SourceAlpha,
+            DestinationBlend = BlendOption.InverseSourceAlpha,
+            BlendOperation = BlendOperation.Add,
+            SourceAlphaBlend = BlendOption.One,
+            DestinationAlphaBlend = BlendOption.Zero,
+            AlphaBlendOperation = BlendOperation.Add,
+            RenderTargetWriteMask = ColorWriteMaskFlags.All
+        };
 
-        DirectXData.Context.InputAssembler.InputLayout = null;
+        using var blendState = new BlendState(DirectXData.Device, blendDesc);
+
+        DirectXData.Context.OutputMerger.SetBlendState(blendState);
+
+        DirectXData.Context.InputAssembler.InputLayout = ShaderHandler.ClippedShader.InputLayout;
         DirectXData.Context.InputAssembler.PrimitiveTopology = PrimitiveTopology.TriangleList;
 
-        DirectXData.Context.Draw(6, 0);
+        DirectXData.Context.InputAssembler.SetVertexBuffers(0, new VertexBufferBinding(VertexBuffer, Utilities.SizeOf<Vertex>(), 0));
+        DirectXData.Context.InputAssembler.SetIndexBuffer(IndexBuffer, Format.R32_UInt, 0);
+        DirectXData.Context.InputAssembler.PrimitiveTopology = PrimitiveTopology.TriangleList;
+
+        DirectXData.Context.DrawIndexed(indices.Length, 0, 0);
 
         DirectXData.Context.PixelShader.SetShaderResource(0, null);
+
+        DirectXData.Context.OutputMerger.ResetTargets();
+        DirectXData.Context.OutputMerger.SetBlendState(null);
+        DirectXData.Context.OutputMerger.SetDepthStencilState(null);
     }
 
     private bool OverrideMappedTexture(ref MappedTexture? mappedTexture, ref RenderTarget? renderTarget, Texture* texture)
@@ -282,6 +382,13 @@ internal unsafe class BackBufferHook : HookableElement
 
     public override void OnDispose()
     {
+        ThatOneSecretTexture?.Dispose();
+
+        VertexBuffer?.Dispose();
+        IndexBuffer?.Dispose();
+
+        DisposeOldBuffers();
+
         Mirror.Dispose();
 
         ScreenHook.DeregisterScreenSizeChangeCallback(OnScreenSizeChanged);

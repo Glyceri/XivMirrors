@@ -65,6 +65,11 @@ internal unsafe class DebugWindow : MirrorWindow
 
     private void DrawBackBuffer()
     {
+        if (BackBufferHook.ThatOneSecretTexture != null)
+        {
+            ImGui.Image(BackBufferHook.ThatOneSecretTexture.Handle, new System.Numerics.Vector2(500, 500));
+        }
+
         DrawMappedTexture(BackBufferHook.BackBufferNoUI);
         ImGui.SameLine();
         DrawMappedTexture(BackBufferHook.BackBufferWithUI);

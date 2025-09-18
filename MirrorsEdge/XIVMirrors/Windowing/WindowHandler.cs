@@ -48,6 +48,8 @@ internal class WindowHandler : IDisposable
 
     private void _Register()
     {
+        AddWindow(new WorldWindow(this, DalamudServices, MirrorServices));
+
         DalamudServices.Framework.RunOnFrameworkThread(() => AddWindow(new DebugWindow(this, DalamudServices, MirrorServices, CameraHandler, RendererHook, ScreenHook, ShaderHandler, DirectXData, BackBufferHook)));
     }
 

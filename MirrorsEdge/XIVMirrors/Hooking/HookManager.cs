@@ -6,6 +6,7 @@ using MirrorsEdge.XIVMirrors.Services;
 using MirrorsEdge.XIVMirrors.Shaders;
 using System;
 using System.Collections.Generic;
+using MirrorsEdge.XIVMirrors.ResourceHandling;
 
 namespace MirrorsEdge.XIVMirrors.Hooking;
 
@@ -15,6 +16,7 @@ internal class HookManager : IDisposable
     private readonly MirrorServices     MirrorServices;
     private readonly DirectXData        DirectXData;
     private readonly ShaderHandler      ShaderHandler;
+    private readonly ResourceHandler    ResourceHandler;
 
     private readonly List<IHookableElement> _hookableElements = new List<IHookableElement>();
 
@@ -23,19 +25,22 @@ internal class HookManager : IDisposable
     public readonly ScreenHook          ScreenHook;
     public readonly BackBufferHook      BackBufferHook;
     public readonly ResourceHooks       ResourceHooks;
+    public readonly ThatShitFromKara    ThatShitFromKara;
 
-    public HookManager(DalamudServices dalamudServices, MirrorServices mirrorServices, DirectXData directXData, ShaderHandler shaderHandler)
+    public HookManager(DalamudServices dalamudServices, MirrorServices mirrorServices, DirectXData directXData, ShaderHandler shaderHandler, ResourceHandler resourceHandler)
     {
         DalamudServices = dalamudServices;
         MirrorServices  = mirrorServices;
         DirectXData     = directXData;
         ShaderHandler   = shaderHandler;
+        ResourceHandler = resourceHandler;
 
-        Register(CameraHooks    = new CameraHooks(DalamudServices, MirrorServices));
-        Register(RendererHook   = new RendererHook(DalamudServices, MirrorServices, DirectXData));
-        Register(ScreenHook     = new ScreenHook(DalamudServices, MirrorServices, RendererHook));
-        Register(BackBufferHook = new BackBufferHook(DalamudServices, MirrorServices, DirectXData, RendererHook, ScreenHook, ShaderHandler));
-        Register(ResourceHooks  = new ResourceHooks(DalamudServices, MirrorServices));
+        Register(CameraHooks        = new CameraHooks(DalamudServices, MirrorServices));
+        Register(RendererHook       = new RendererHook(DalamudServices, MirrorServices, DirectXData));
+        Register(ScreenHook         = new ScreenHook(DalamudServices, MirrorServices, RendererHook));
+        Register(BackBufferHook     = new BackBufferHook(DalamudServices, MirrorServices, DirectXData, RendererHook, ScreenHook, ShaderHandler));
+        Register(ResourceHooks      = new ResourceHooks(DalamudServices, MirrorServices, ResourceHandler));
+        Register(ThatShitFromKara   = new ThatShitFromKara(DalamudServices, MirrorServices));
     }
 
     private void Register(IHookableElement element)

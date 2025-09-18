@@ -7,6 +7,8 @@ using MirrorsEdge.XIVMirrors.Services;
 using MirrorsEdge.XIVMirrors.Shaders;
 using System;
 using MirrorsEdge.XIVMirrors.Resources;
+using FFXIVClientStructs.FFXIV.Client.Graphics.Scene;
+using Dalamud.Interface.Utility;
 
 namespace MirrorsEdge.XIVMirrors.Windowing.Windows;
 

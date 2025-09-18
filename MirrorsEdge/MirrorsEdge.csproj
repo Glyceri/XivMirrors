@@ -30,7 +30,12 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Folder Include="XIVMirrors\NewFolder\" />
     <Folder Include="XIVMirrors\shaders\ShaderTypes\" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Penumbra.String\Penumbra.String.csproj" />
   </ItemGroup>
 
 </Project>

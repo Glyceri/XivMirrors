@@ -9,15 +9,18 @@ internal class MirrorServices
 
     public readonly Configuration   Configuration;
     public readonly IMirrorLog      MirrorLog;
+    public readonly Utils           Utils;
 
     public MirrorServices(DalamudServices dalamudServices)
     {
         DalamudServices = dalamudServices;
 
-        Configuration = DalamudServices.DalamudPlugin.GetPluginConfig() as Configuration ?? new Configuration();
+        Configuration   = DalamudServices.DalamudPlugin.GetPluginConfig() as Configuration ?? new Configuration();
 
         Configuration.Initialise(DalamudServices.DalamudPlugin);
 
-        MirrorLog = new MirrorLog(DalamudServices.PluginLog);
+        MirrorLog       = new MirrorLog(DalamudServices.PluginLog);
+
+        Utils           = new Utils();
     }
 }

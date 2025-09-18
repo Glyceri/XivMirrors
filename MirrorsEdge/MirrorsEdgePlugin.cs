@@ -9,6 +9,7 @@ using MirrorsEdge.XIVMirrors.Services;
 using MirrorsEdge.XIVMirrors.Shaders;
 using MirrorsEdge.XIVMirrors.Windowing;
 using System.Reflection;
+using MirrorsEdge.XIVMirrors.ResourceHandling;
 
 namespace MirrorsEdge;
 
@@ -22,6 +23,7 @@ public sealed class MirrorsEdgePlugin : IDalamudPlugin
     private readonly DirectXData        DirectXData;
 
     private readonly HookManager        HookManager;
+    private readonly ResourceHandler    ResourceHandler;
     private readonly CameraHandler      CameraHandler;
     private readonly WindowHandler      WindowHandler;
 
@@ -42,7 +44,9 @@ public sealed class MirrorsEdgePlugin : IDalamudPlugin
 
         ShaderHandler       = new ShaderHandler(MirrorServices, ResourceLoader, DirectXData);
 
-        HookManager         = new HookManager(DalamudServices, MirrorServices, DirectXData, ShaderHandler);
+        ResourceHandler     = new ResourceHandler(DalamudServices, MirrorServices);
+
+        HookManager         = new HookManager(DalamudServices, MirrorServices, DirectXData, ShaderHandler, ResourceHandler);
 
         CameraHandler       = new CameraHandler(DalamudServices, MirrorServices, HookManager.CameraHooks);
 
@@ -51,6 +55,8 @@ public sealed class MirrorsEdgePlugin : IDalamudPlugin
 
     public void Dispose()
     {
+        ResourceHandler.Dispose();
+
         HookManager.Dispose();
         WindowHandler.Dispose();
         CameraHandler.Dispose();

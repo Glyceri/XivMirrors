@@ -63,8 +63,6 @@ internal unsafe class RendererHook : HookableElement
 
     private int ProperPresentDetour(IntPtr swapChain, uint erm, uint flags)
     {
-        MirrorServices.MirrorLog.LogVerbose("Present");
-
         try
         {
             foreach (RenderPassDelegate renderPass in _renderPasses)
@@ -80,8 +78,6 @@ internal unsafe class RendererHook : HookableElement
             {
                 renderPass?.Invoke(RenderPass.Post);
             }
-
-            MirrorServices.MirrorLog.LogVerbose("Post Present");
 
             return returner;
         }
@@ -115,8 +111,6 @@ internal unsafe class RendererHook : HookableElement
         _ = uniques.Remove(dsvPtr);
 
         uniques.Add(dsvPtr);
-
-        MirrorServices.MirrorLog.LogVerbose("YAYA: " + uniques.Count + ", " + numViews);
 
         try
         {

@@ -110,6 +110,8 @@ internal unsafe class BackBufferHook : HookableElement
             return;
         }
 
+        return;
+
         try
         {
             if (!SetupBuffers())
@@ -220,9 +222,6 @@ internal unsafe class BackBufferHook : HookableElement
         {
             return;
         }
-
-        // Grab what the game has set
-        MirrorServices.MirrorLog.LogVerbose("YUPP");
 
         using Texture2D backBuffer = DirectXData.SwapChain.GetBackBuffer<Texture2D>(0);
         using RenderTargetView backBufferRTV = new RenderTargetView(DirectXData.Device, backBuffer);

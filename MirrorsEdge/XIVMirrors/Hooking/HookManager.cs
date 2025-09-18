@@ -22,6 +22,7 @@ internal class HookManager : IDisposable
     public readonly RendererHook        RendererHook;
     public readonly ScreenHook          ScreenHook;
     public readonly BackBufferHook      BackBufferHook;
+    public readonly ResourceHooks       ResourceHooks;
 
     public HookManager(DalamudServices dalamudServices, MirrorServices mirrorServices, DirectXData directXData, ShaderHandler shaderHandler)
     {
@@ -34,6 +35,7 @@ internal class HookManager : IDisposable
         Register(RendererHook   = new RendererHook(DalamudServices, MirrorServices, DirectXData));
         Register(ScreenHook     = new ScreenHook(DalamudServices, MirrorServices, RendererHook));
         Register(BackBufferHook = new BackBufferHook(DalamudServices, MirrorServices, DirectXData, RendererHook, ScreenHook, ShaderHandler));
+        Register(ResourceHooks  = new ResourceHooks(DalamudServices, MirrorServices));
     }
 
     private void Register(IHookableElement element)

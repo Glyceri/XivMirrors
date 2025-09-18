@@ -10,9 +10,6 @@ using System.Numerics;
 using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks;
-using System.Transactions;
-using static FFXIVClientStructs.FFXIV.Client.UI.AddonActionBarX;
-using static FFXIVClientStructs.FFXIV.Client.UI.Misc.GroupPoseModule;
 
 namespace MirrorsEdge.XIVMirrors.Hooking.HookableElements;
 
@@ -120,14 +117,14 @@ internal unsafe class ThatShitFromKara : HookableElement
 
     private void PrimitiveServerRenderDetour(nint thisPtr)
     {
-        MirrorServices.MirrorLog.LogVerbose("PrimitiveServerRenderDetour");
+       // MirrorServices.MirrorLog.LogVerbose("PrimitiveServerRenderDetour");
 
         PrimitiveServerRenderHook!.Original(thisPtr);
     }
 
     private nint PrimitiveContextDrawCommandDetour(nint thisPtr, ulong unk1, uint unk2, uint unk3, nint unk4)
     {
-        MirrorServices.MirrorLog.LogVerbose("PrimitiveContextDrawCommandDetour");
+        //MirrorServices.MirrorLog.LogVerbose("PrimitiveContextDrawCommandDetour");
 
         return PrimitiveContextDrawCommandHook!.Original(thisPtr, unk1, unk2, unk3, unk4);
     }
@@ -151,14 +148,16 @@ internal unsafe class ThatShitFromKara : HookableElement
         {
             EnvMangDetour();
         }
-        catch(Exception e)
+        catch (Exception e)
         {
             MirrorServices.MirrorLog.LogException(e);
         }
+        finally
+        { 
+            PrimitiveServerSpursSortUnencumberedDetour(primitive.PrimitiveServer);
 
-        PrimitiveServerSpursSortUnencumberedDetour(primitive.PrimitiveServer);
-
-        PrimitiveServerRenderDetour(primitive.PrimitiveServer);
+            PrimitiveServerRenderDetour(primitive.PrimitiveServer);
+        }
 
         return outcome;
     }
@@ -278,7 +277,7 @@ internal unsafe class ThatShitFromKara : HookableElement
 
         MyRenderTargetManager* mrtm = (MyRenderTargetManager*)RenderTargetManager.Instance();
 
-        using WhateverTheFlipFlop.Material material = WhateverTheFlipFlop.Material.CreateFromTexture((nint)mrtm->BackBuffer->D3D11Texture2D);
+        using WhateverTheFlipFlop.Material material = WhateverTheFlipFlop.Material.CreateFromTexture((nint)mrtm->DepthBufferTransparency);
 
         var vertexPointer = context.DrawCommand(0x21, 4, 5, material.Pointer);
 
@@ -289,10 +288,10 @@ internal unsafe class ThatShitFromKara : HookableElement
             return;
         }
 
-        var aspectRatio = (float)1920 / 1080;
+        var aspectRatio = (float)1080 / 1920;
         var dimensions = new Vector3(1, aspectRatio, 0);
-        var translation = Vector3.Zero;
-        var scale = 1;
+        var translation = new Vector3(0, 0, 0);
+        var scale = 100.0f;
         var color = new Vector4(1, 0, 1, 1);
         var position = Position.FromCoordinates(0, 0, 0);
 

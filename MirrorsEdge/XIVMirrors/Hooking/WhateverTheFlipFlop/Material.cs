@@ -51,8 +51,8 @@ public unsafe class Material : IDisposable
         {
             FaceCullMode = 0,
             FaceCullEnable = false,
-            DepthWriteEnable = true,
-            DepthTestEnable = true,
+            DepthWriteEnable = false,
+            DepthTestEnable = false,
             TextureRemapAlpha = 0x2,
             TextureRemapColor = 0x2,
         };

@@ -2,6 +2,7 @@ using Dalamud.Hooking;
 using Dalamud.Utility.Signatures;
 using FFXIVClientStructs.FFXIV.Client.Graphics.Kernel;
 using FFXIVClientStructs.FFXIV.Client.Graphics.Render;
+using Lumina.Models.Materials;
 using MirrorsEdge.XIVMirrors.Hooking.WhateverTheFlipFlop;
 using MirrorsEdge.XIVMirrors.Rendering;
 using MirrorsEdge.XIVMirrors.Services;
@@ -16,6 +17,7 @@ namespace MirrorsEdge.XIVMirrors.Hooking.HookableElements;
 // https://github.com/karashiiro/Simulacrum/blob/main/src/simulacrum-dalamud-plugin/Game/Primitive.cs#L103
 internal unsafe class ThatShitFromKara : HookableElement
 {
+    private delegate nint CreateApricotTextureFromTex(nint apricot, nint texturePointer, long textureLength);
     private delegate nint PrimitiveServerCtorDelegate(nint thisPtr);
     private delegate byte PrimitiveServerInitialize(nint thisPtr, uint unk1, ulong unk2, ulong unk3, uint unk4, uint unk5, ulong unk6, nint unk7, nint unk8);
     private delegate void PrimitiveServerLoadResource(nint thisPtr);
@@ -53,19 +55,29 @@ internal unsafe class ThatShitFromKara : HookableElement
     [Signature("48 89 5C 24 ?? 55 56 57 41 55 41 56 48 8D AC 24 ?? ?? ?? ?? 48 81 EC C0 04 00 00", DetourName = nameof(EnvironmentManagerUpdateDetour))]
     private readonly Hook<EnvironmentManagerUpdate>? EnvironmentManagerUpdateHook = null!;
 
+    [Signature("48 89 5C 24 ?? 48 89 74 24 ?? 57 48 83 EC 40 48 8B FA 41 8B F0", DetourName = nameof(CreateApricotTextureFromTexDetour))]
+    private readonly Hook<CreateApricotTextureFromTex>? CreateApricotTextureFromTexHook = null!;
+
     private readonly Primitive primitive;
 
     private readonly CancellationTokenSource source;
+
+    private readonly WhateverTheFlipFlop.Material material;
 
     public ThatShitFromKara(DalamudServices dalamudServices, MirrorServices mirrorServices) : base(dalamudServices, mirrorServices)
     {
         primitive = new Primitive(DalamudServices, mirrorServices, this);
 
         source = new CancellationTokenSource();
+
+        MyRenderTargetManager* mrtm = (MyRenderTargetManager*)RenderTargetManager.Instance();
+
+        material = WhateverTheFlipFlop.Material.CreateFromTexture((nint)mrtm->DepthBufferTransparency);
     }
 
     public override void Init()
     {
+        CreateApricotTextureFromTexHook?.Enable();
         PrimitiveServerCtorHook?.Enable();
         PrimitiveServerInitializeHook?.Enable();
         PrimitiveServerLoadResourceHook?.Enable();
@@ -76,8 +88,14 @@ internal unsafe class ThatShitFromKara : HookableElement
         KernelDeviceCreateVertexDeclarationHook?.Enable();
         EnvironmentManagerUpdateHook?.Enable();
 
-       
-        Task.Run(primitive.Initialize, source.Token);
+        primitive.Initialize();
+    }
+
+    public nint CreateApricotTextureFromTexDetour(nint apricot, nint texturePointer, long textureLength)
+    {
+        MirrorServices.MirrorLog.Log("Create Apricot Texture");
+
+        return CreateApricotTextureFromTexHook!.Original(apricot, texturePointer, textureLength);
     }
 
     private nint PrimitiveServerCtorDetour(nint thisPtr)
@@ -275,11 +293,7 @@ internal unsafe class ThatShitFromKara : HookableElement
 
         var context = new UnmanagedPrimitiveContext(primitive.PrimitiveContext, PrimitiveContextDrawCommandDetour);
 
-        MyRenderTargetManager* mrtm = (MyRenderTargetManager*)RenderTargetManager.Instance();
-
-        using WhateverTheFlipFlop.Material material = WhateverTheFlipFlop.Material.CreateFromTexture((nint)mrtm->DepthBufferTransparency);
-
-        var vertexPointer = context.DrawCommand(0x21, 4, 5, material.Pointer);
+        var vertexPointer = context.DrawCommand(0x21, 4, 0, material.Pointer);
 
         if (vertexPointer == nint.Zero)
         {
@@ -289,11 +303,11 @@ internal unsafe class ThatShitFromKara : HookableElement
         }
 
         var aspectRatio = (float)1080 / 1920;
-        var dimensions = new Vector3(1, aspectRatio, 0);
+        var dimensions = new Vector3(1, aspectRatio, 0.1f);
         var translation = new Vector3(0, 0, 0);
-        var scale = 100.0f;
-        var color = new Vector4(1, 0, 1, 1);
-        var position = Position.FromCoordinates(0, 0, 0);
+        var scale = 10;
+        var color = new Vector4(1, 1, 1, 1);
+        var position = Position.FromCoordinates(DalamudServices.ClientState.LocalPlayer.Position.X, DalamudServices.ClientState.LocalPlayer.Position.Y, DalamudServices.ClientState.LocalPlayer.Position.Z);
 
         unsafe
         {
@@ -349,11 +363,14 @@ internal unsafe class ThatShitFromKara : HookableElement
 
     public override void OnDispose()
     {
+        material?.Dispose();
+
         source?.Cancel();
         source?.Dispose();
 
-        primitive?.Dispose();   
+        primitive?.Dispose();
 
+        CreateApricotTextureFromTexHook?.Dispose();
         PrimitiveServerCtorHook?.Dispose();
         PrimitiveServerInitializeHook?.Dispose();
         PrimitiveServerLoadResourceHook?.Dispose();

@@ -67,7 +67,7 @@ internal unsafe class RendererHook : HookableElement
         {
             foreach (RenderPassDelegate renderPass in _renderPasses)
             {
-                renderPass?.Invoke(RenderPass.Pre);
+                //renderPass?.Invoke(RenderPass.Pre);
             }
 
             int returner = OmPresentHook!.Original(swapChain, erm, flags);
@@ -76,7 +76,7 @@ internal unsafe class RendererHook : HookableElement
 
             foreach (RenderPassDelegate renderPass in _renderPasses)
             {
-                renderPass?.Invoke(RenderPass.Post);
+                //renderPass?.Invoke(RenderPass.Post);
             }
 
             return returner;
@@ -93,11 +93,11 @@ internal unsafe class RendererHook : HookableElement
     {
         //DXGIPresentHook?.Enable();
 
-        OmPresentHook?.Enable();
+        //OmPresentHook?.Enable();
 
-        RenderThreadSetRenderTargetHook?.Enable();
+        //RenderThreadSetRenderTargetHook?.Enable();
 
-        SetRenderTargetHook?.Enable();
+        //SetRenderTargetHook?.Enable();
     }
 
     List<nint> uniques = new List<nint>();

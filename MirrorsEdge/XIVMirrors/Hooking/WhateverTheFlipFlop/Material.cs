@@ -23,7 +23,7 @@ internal unsafe class Material : IDisposable
 
         material.PrimitiveMaterial->BlendState = new Structs.BlendState
         {
-            ColorWriteEnable = ColorMask.RGBA,
+            ColorWriteEnable = ColorMask.RGB,
             AlphaBlendFactorDst = 0x5,
             AlphaBlendFactorSrc = 0x0,
             AlphaBlendOperation = 0,
@@ -53,7 +53,7 @@ internal unsafe class Material : IDisposable
             FaceCullEnable = false,
             DepthWriteEnable = false,
             DepthTestEnable = false,
-            TextureRemapAlpha = 2,
+            TextureRemapAlpha = 1,
             TextureRemapColor = 2,
         };
 

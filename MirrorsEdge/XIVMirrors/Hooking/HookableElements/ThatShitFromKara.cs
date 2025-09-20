@@ -1,7 +1,6 @@
 using Dalamud.Hooking;
 using Dalamud.Utility.Signatures;
 using FFXIVClientStructs.FFXIV.Client.Graphics.Render;
-using Lumina.Models.Materials;
 using MirrorsEdge.XIVMirrors.Hooking.WhateverTheFlipFlop;
 using MirrorsEdge.XIVMirrors.Memory;
 using MirrorsEdge.XIVMirrors.Rendering;
@@ -11,7 +10,6 @@ using System;
 using System.Numerics;
 using System.Runtime.InteropServices;
 using System.Threading;
-using System.Threading.Tasks;
 
 namespace MirrorsEdge.XIVMirrors.Hooking.HookableElements;
 
@@ -53,7 +51,7 @@ internal unsafe class ThatShitFromKara : HookableElement
     [Signature("E8 ?? ?? ?? ?? 48 8B 4E 28 48 89 04 F9", DetourName = nameof(KernelDeviceCreateVertexDeclarationDetour))]
     private readonly Hook<KernelDeviceCreateVertexDeclaration>? KernelDeviceCreateVertexDeclarationHook = null!;
 
-    [Signature("48 89 5C 24 ?? 55 56 57 41 55 41 56 48 8D AC 24 ?? ?? ?? ?? 48 81 EC C0 04 00 00", DetourName = nameof(EnvironmentManagerUpdateDetour))]
+    [Signature("48 89 5C 24 ?? 55 56 57 41 55 41 56 48 8D AC 24 ?? ?? ?? ?? 48 81 EC ?? ?? ?? ?? 48 8B 05", DetourName = nameof(EnvironmentManagerUpdateDetour))]
     private readonly Hook<EnvironmentManagerUpdate>? EnvironmentManagerUpdateHook = null!;
 
     [Signature("48 89 5C 24 ?? 48 89 74 24 ?? 57 48 83 EC 40 48 8B FA 41 8B F0", DetourName = nameof(CreateApricotTextureFromTexDetour))]
@@ -79,7 +77,14 @@ internal unsafe class ThatShitFromKara : HookableElement
 
         MyRenderTargetManager* mrtm = (MyRenderTargetManager*)RenderTargetManager.Instance();
 
-        material = WhateverTheFlipFlop.Material.CreateFromTexture((nint)mrtm->DepthBufferTransparency, data);
+        material = WhateverTheFlipFlop.Material.CreateFromTexture((nint)mrtm->BackBufferNoUI, data);
+
+        DalamudServices.DalamudPlugin.UiBuilder.Draw += Draw;
+    }
+
+    private void Draw()
+    {
+
     }
 
     public override void Init()
@@ -180,23 +185,29 @@ internal unsafe class ThatShitFromKara : HookableElement
     {
         MirrorServices.MirrorLog.LogVerbose($"EnvironmentManagerUpdateDetour: {thisPtr}, {unk1}");
 
+
         nint outcome = EnvironmentManagerUpdateHook!.Original(thisPtr, unk1);
-
-        PrimitiveServerBeginDetour(primitive.PrimitiveServer);
-
+        
         try
         {
+            PrimitiveServerBeginDetour(primitive.PrimitiveServer);
+
             EnvMangDetour();
         }
         catch (Exception e)
         {
             MirrorServices.MirrorLog.LogException(e);
         }
-        finally
-        { 
+
+        try
+        {
             PrimitiveServerSpursSortUnencumberedDetour(primitive.PrimitiveServer);
 
             PrimitiveServerRenderDetour(primitive.PrimitiveServer);
+        }
+        catch (Exception e)
+        {
+            MirrorServices.MirrorLog.LogException(e);
         }
 
         return outcome;
@@ -310,12 +321,14 @@ internal unsafe class ThatShitFromKara : HookableElement
     {
         if (DalamudServices.ClientState.LocalPlayer == null)
         {
-           // return;
+            return;
         }
 
         var context = new UnmanagedPrimitiveContext(primitive.PrimitiveContext, PrimitiveContextDrawCommandDetour);
 
-        var vertexPointer = context.DrawCommand(0x23, 5, 0, material.Pointer);
+          //Data.Context.OutputMerger.SetDepthStencilState(worldDepthState);
+
+        var vertexPointer = context.DrawCommand(0x23, 4, 5, material.Pointer);
 
         if (vertexPointer == nint.Zero)
         {
@@ -329,9 +342,9 @@ internal unsafe class ThatShitFromKara : HookableElement
         var translation = new Vector3(0, 0, 0);
         var scale = 10;
         var color = new Vector4(1, 1, 1, 1);
-        //var position = Position.FromCoordinates(DalamudServices.ClientState.LocalPlayer.Position.X, DalamudServices.ClientState.LocalPlayer.Position.Y, DalamudServices.ClientState.LocalPlayer.Position.Z);
+        var position = Position.FromCoordinates(DalamudServices.ClientState.LocalPlayer.Position.X, DalamudServices.ClientState.LocalPlayer.Position.Y, DalamudServices.ClientState.LocalPlayer.Position.Z);
 
-        var position = Position.FromCoordinates(1, 1, 1);
+        //var position = Position.FromCoordinates(1, 1, 1);
 
         unsafe
         {
@@ -387,6 +400,8 @@ internal unsafe class ThatShitFromKara : HookableElement
 
     public override void OnDispose()
     {
+        DalamudServices.DalamudPlugin.UiBuilder.Draw -= Draw;
+
         material?.Dispose();
 
         source?.Cancel();

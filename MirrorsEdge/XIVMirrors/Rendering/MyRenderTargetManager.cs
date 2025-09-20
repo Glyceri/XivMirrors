@@ -7,6 +7,16 @@ namespace MirrorsEdge.XIVMirrors.Rendering;
 internal unsafe struct MyRenderTargetManager
 {
     /// <summary>
+    /// The VFX buffer
+    /// </summary>
+    [FieldOffset(0x48)] public Texture* LightBuffer;
+
+    /// <summary>
+    /// The VFX buffer
+    /// </summary>
+    [FieldOffset(0x68)] public Texture* VFX;
+
+    /// <summary>
     /// The depth buffer without any transparent elements buffered.
     /// </summary>
     [FieldOffset(0x70)]  public Texture* DepthBufferNoTransparency;
@@ -24,5 +34,10 @@ internal unsafe struct MyRenderTargetManager
     /// <summary>
     /// The final back buffer shown on screen.
     /// </summary>
-    [FieldOffset(0x4E0)] public Texture* BackBuffer;    
+    [FieldOffset(0x4E0)] public Texture* BackBuffer;
+
+    /// <summary>
+    /// The full skybox on a render texture.
+    /// </summary>
+    [FieldOffset(0x420)] public Texture* Skybox;
 }

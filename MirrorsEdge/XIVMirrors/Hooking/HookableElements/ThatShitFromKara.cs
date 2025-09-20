@@ -1,11 +1,12 @@
 using Dalamud.Hooking;
 using Dalamud.Utility.Signatures;
-using FFXIVClientStructs.FFXIV.Client.Graphics.Kernel;
 using FFXIVClientStructs.FFXIV.Client.Graphics.Render;
 using Lumina.Models.Materials;
 using MirrorsEdge.XIVMirrors.Hooking.WhateverTheFlipFlop;
+using MirrorsEdge.XIVMirrors.Memory;
 using MirrorsEdge.XIVMirrors.Rendering;
 using MirrorsEdge.XIVMirrors.Services;
+using SharpDX.Direct3D11;
 using System;
 using System.Numerics;
 using System.Runtime.InteropServices;
@@ -19,12 +20,12 @@ internal unsafe class ThatShitFromKara : HookableElement
 {
     private delegate nint CreateApricotTextureFromTex(nint apricot, nint texturePointer, long textureLength);
     private delegate nint PrimitiveServerCtorDelegate(nint thisPtr);
-    private delegate byte PrimitiveServerInitialize(nint thisPtr, uint unk1, ulong unk2, ulong unk3, uint unk4, uint unk5, ulong unk6, nint unk7, nint unk8);
+    private delegate byte PrimitiveServerInitialize(nint primitiveServer, int width, int height, int paramFlags1, int paramFlags2, int lodOrUsageFlags, nint ownerId, nint deviceContext, nint unknownPrimitiveInitSettings);
     private delegate void PrimitiveServerLoadResource(nint thisPtr);
     private delegate void PrimitiveServerBegin(nint thisPtr);
     private delegate void PrimitiveServerSpursSortUnencumbered(nint thisPtr);
     private delegate void PrimitiveServerRender(nint thisPtr);
-    public delegate nint PrimitiveContextDrawCommand(nint thisPtr, ulong unk1, uint unk2, uint unk3, nint unk4);
+    public delegate nint PrimitiveContextDrawCommand(nint primitiveContext, ulong unk1, uint unk2, uint unk3, nint unk4);
     private delegate nint KernelDeviceCreateVertexDeclaration(nint thisPtr, nint unk1, uint unk2);
     private delegate nint EnvironmentManagerUpdate(nint thisPtr, nint unk1);
 
@@ -64,15 +65,21 @@ internal unsafe class ThatShitFromKara : HookableElement
 
     private readonly WhateverTheFlipFlop.Material material;
 
-    public ThatShitFromKara(DalamudServices dalamudServices, MirrorServices mirrorServices) : base(dalamudServices, mirrorServices)
+    private readonly DirectXData Data;
+
+    public ThatShitFromKara(DalamudServices dalamudServices, MirrorServices mirrorServices, DirectXData data) : base(dalamudServices, mirrorServices)
     {
+        Data = data;
+
+        InitDepthState();
+
         primitive = new Primitive(DalamudServices, mirrorServices, this);
 
         source = new CancellationTokenSource();
 
         MyRenderTargetManager* mrtm = (MyRenderTargetManager*)RenderTargetManager.Instance();
 
-        material = WhateverTheFlipFlop.Material.CreateFromTexture((nint)mrtm->DepthBufferTransparency);
+        material = WhateverTheFlipFlop.Material.CreateFromTexture((nint)mrtm->DepthBufferTransparency, data);
     }
 
     public override void Init()
@@ -105,7 +112,7 @@ internal unsafe class ThatShitFromKara : HookableElement
         return PrimitiveServerCtorHook!.Original(thisPtr);
     }
 
-    private byte PrimitiveServerInitializeDetour(nint thisPtr, uint unk1, ulong unk2, ulong unk3, uint unk4, uint unk5, ulong unk6, nint unk7, nint unk8)
+    private byte PrimitiveServerInitializeDetour(nint thisPtr, int unk1, int unk2, int unk3, int unk4, int unk5, nint unk6, nint unk7, nint unk8)
     {
         MirrorServices.MirrorLog.LogVerbose("PrimitiveServerInitializeDetour");
 
@@ -135,16 +142,16 @@ internal unsafe class ThatShitFromKara : HookableElement
 
     private void PrimitiveServerRenderDetour(nint thisPtr)
     {
-       // MirrorServices.MirrorLog.LogVerbose("PrimitiveServerRenderDetour");
+        MirrorServices.MirrorLog.LogVerbose("PrimitiveServerRenderDetour");
 
         PrimitiveServerRenderHook!.Original(thisPtr);
     }
 
-    private nint PrimitiveContextDrawCommandDetour(nint thisPtr, ulong unk1, uint unk2, uint unk3, nint unk4)
+    private nint PrimitiveContextDrawCommandDetour(nint primitiveContext, ulong unk1, uint unk2, uint unk3, nint unk4)
     {
         //MirrorServices.MirrorLog.LogVerbose("PrimitiveContextDrawCommandDetour");
 
-        return PrimitiveContextDrawCommandHook!.Original(thisPtr, unk1, unk2, unk3, unk4);
+        return PrimitiveContextDrawCommandHook!.Original(primitiveContext, unk1, unk2, unk3, unk4);
     }
 
     private nint KernelDeviceCreateVertexDeclarationDetour(nint thisPtr, nint unk1, uint unk2)
@@ -154,9 +161,24 @@ internal unsafe class ThatShitFromKara : HookableElement
         return KernelDeviceCreateVertexDeclarationHook!.Original(thisPtr, unk1, unk2);
     }
 
+    private static DepthStencilState? worldDepthState;
+
+    public void InitDepthState()
+    {
+        var desc = new DepthStencilStateDescription
+        {
+            IsDepthEnabled = true,
+            DepthWriteMask = DepthWriteMask.All,
+            DepthComparison = Comparison.LessEqual,
+            IsStencilEnabled = false
+        };
+
+        worldDepthState = new DepthStencilState(Data.Device, desc);
+    }
+
     private nint EnvironmentManagerUpdateDetour(nint thisPtr, nint unk1)
     {
-        MirrorServices.MirrorLog.LogVerbose("EnvironmentManagerUpdateDetour");
+        MirrorServices.MirrorLog.LogVerbose($"EnvironmentManagerUpdateDetour: {thisPtr}, {unk1}");
 
         nint outcome = EnvironmentManagerUpdateHook!.Original(thisPtr, unk1);
 
@@ -288,12 +310,12 @@ internal unsafe class ThatShitFromKara : HookableElement
     {
         if (DalamudServices.ClientState.LocalPlayer == null)
         {
-            return;
+           // return;
         }
 
         var context = new UnmanagedPrimitiveContext(primitive.PrimitiveContext, PrimitiveContextDrawCommandDetour);
 
-        var vertexPointer = context.DrawCommand(0x21, 4, 0, material.Pointer);
+        var vertexPointer = context.DrawCommand(0x23, 5, 0, material.Pointer);
 
         if (vertexPointer == nint.Zero)
         {
@@ -303,11 +325,13 @@ internal unsafe class ThatShitFromKara : HookableElement
         }
 
         var aspectRatio = (float)1080 / 1920;
-        var dimensions = new Vector3(1, aspectRatio, 0.1f);
+        var dimensions = new Vector3(1, aspectRatio, 0);
         var translation = new Vector3(0, 0, 0);
         var scale = 10;
         var color = new Vector4(1, 1, 1, 1);
-        var position = Position.FromCoordinates(DalamudServices.ClientState.LocalPlayer.Position.X, DalamudServices.ClientState.LocalPlayer.Position.Y, DalamudServices.ClientState.LocalPlayer.Position.Z);
+        //var position = Position.FromCoordinates(DalamudServices.ClientState.LocalPlayer.Position.X, DalamudServices.ClientState.LocalPlayer.Position.Y, DalamudServices.ClientState.LocalPlayer.Position.Z);
+
+        var position = Position.FromCoordinates(1, 1, 1);
 
         unsafe
         {
@@ -341,7 +365,7 @@ internal unsafe class ThatShitFromKara : HookableElement
         }
     }
 
-    public nint CreateVertexDeclaration(Device* device, nint unk1, uint unk2)
+    public nint CreateVertexDeclaration(FFXIVClientStructs.FFXIV.Client.Graphics.Kernel.Device* device, nint unk1, uint unk2)
     {
         return KernelDeviceCreateVertexDeclarationDetour((nint)device, unk1, unk2);
     }
@@ -351,7 +375,7 @@ internal unsafe class ThatShitFromKara : HookableElement
         return PrimitiveServerCtorDetour(thisPtr);
     }
 
-    public byte InitializePrimitiveServer(nint thisPtr, uint unk1, ulong unk2, ulong unk3, uint unk4, uint unk5, ulong unk6, nint unk7, nint unk8)
+    public byte InitializePrimitiveServer(nint thisPtr, int unk1, int unk2, int unk3, int unk4, int unk5, nint unk6, nint unk7, nint unk8)
     {
         return PrimitiveServerInitializeDetour(thisPtr, unk1, unk2, unk3, unk4, unk5, unk6, unk7, unk8);
     }

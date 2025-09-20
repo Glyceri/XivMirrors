@@ -133,9 +133,43 @@ internal unsafe class RendererHook : HookableElement
     {
         try
         {
+            RenderTargetView[] views = DirectXData.Context.OutputMerger.GetRenderTargets(1, out DepthStencilView dsv);
+
+            DepthStencilStateDescription desc = new DepthStencilStateDescription()
+            {
+                IsDepthEnabled = true,
+                DepthWriteMask = DepthWriteMask.All,
+                DepthComparison = Comparison.Less,
+                IsStencilEnabled = false,
+                StencilReadMask = 0xFF,
+                StencilWriteMask = 0xFF,
+                FrontFace = new DepthStencilOperationDescription
+                {
+                    FailOperation = StencilOperation.Keep,
+                    DepthFailOperation = StencilOperation.Keep,
+                    PassOperation = StencilOperation.Replace,
+                    Comparison = Comparison.Always,
+                },
+                BackFace = new DepthStencilOperationDescription
+                {
+                    FailOperation = StencilOperation.Keep,
+                    DepthFailOperation = StencilOperation.Keep,
+                    PassOperation = StencilOperation.Replace,
+                    Comparison = Comparison.Always,
+                },
+            };
+
+            DirectXData.Context.OutputMerger.DepthStencilReference = 1; // Or any value matching your stencil test
+
+            using DepthStencilState state = new DepthStencilState(DirectXData.Device, desc);
+            DirectXData.Context.OutputMerger.SetDepthStencilState(state);
+
+            DirectXData.Context.OutputMerger.SetRenderTargets(dsv, views[0]);
+
+
             foreach (RenderPassDelegate renderPass in _renderPasses)
             {
-                renderPass?.Invoke(RenderPass.Pre);
+                //renderPass?.Invoke(RenderPass.Pre);
             }
 
             DXGIPresentHook!.Original(ptr);
@@ -144,7 +178,7 @@ internal unsafe class RendererHook : HookableElement
 
             foreach (RenderPassDelegate renderPass in _renderPasses)
             {
-                renderPass?.Invoke(RenderPass.Post);
+                //renderPass?.Invoke(RenderPass.Post);
             }
 
             MirrorServices.MirrorLog.LogVerbose("Post Present");

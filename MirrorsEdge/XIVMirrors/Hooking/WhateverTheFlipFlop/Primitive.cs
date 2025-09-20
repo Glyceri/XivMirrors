@@ -38,21 +38,21 @@ internal unsafe class Primitive : IDisposable
         SetVertexDeclarationOptions(vertexDeclarationElements);
 
         MirrorServices.MirrorLog.LogVerbose("Create Vertex Declaration");
-        nint vertexDeclaration = ThatShitFromKara.CreateVertexDeclaration(Device.Instance(), _vertexDeclarationBuffer, VertexDeclarationBufferElements);
+        nint vertexDeclaration = ThatShitFromKara.CreateVertexDeclaration(FFXIVClientStructs.FFXIV.Client.Graphics.Kernel.Device.Instance(), _vertexDeclarationBuffer, VertexDeclarationBufferElements);
 
         MirrorServices.MirrorLog.LogVerbose("Construct PrimitiveServer");
         ThatShitFromKara.Construct(PrimitiveServer);
 
         byte[] initializeSettings = new byte[24];
 
-        fixed (byte* initializeSettingsPtr = initializeSettings)
+        fixed (byte* ptr = initializeSettings)
         {
-            Marshal.WriteInt64((nint)initializeSettingsPtr, 0x00000000_000A0000);
-            Marshal.WriteInt64((nint)initializeSettingsPtr + 8, 0x00000000_00280000);
-            Marshal.WriteInt64((nint)initializeSettingsPtr + 16, 0x00000000_000A0000);
+            Marshal.WriteInt64((nint)ptr, 0x00000000_000A0000);
+            Marshal.WriteInt64((nint)ptr + 8, 0x00000000_00280000);
+            Marshal.WriteInt64((nint)ptr + 16, 0x00000000_000A0000);
 
             MirrorServices.MirrorLog.LogVerbose("InitializePrimitiveServer");
-            ThatShitFromKara.InitializePrimitiveServer(PrimitiveServer, 0x01, 0x1E, 0x0C, 0x0F, 0, 24, vertexDeclaration, (nint)initializeSettingsPtr);
+            _ = ThatShitFromKara.InitializePrimitiveServer(PrimitiveServer, 0x01, 0x1E, 0x0C, 0x0F, 0, 24, vertexDeclaration, (nint)ptr);
         }
 
         MirrorServices.MirrorLog.LogVerbose("LoadResource");

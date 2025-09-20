@@ -1,12 +1,12 @@
 using MirrorsEdge.XIVMirrors.Hooking.Enum;
 using MirrorsEdge.XIVMirrors.Hooking.Structs;
-using SharpDX.Direct3D11;
+using MirrorsEdge.XIVMirrors.Memory;
 using System;
 using System.Runtime.InteropServices;
 
 namespace MirrorsEdge.XIVMirrors.Hooking.WhateverTheFlipFlop;
 
-public unsafe class Material : IDisposable
+internal unsafe class Material : IDisposable
 {
     public nint Pointer { get; }
 
@@ -17,7 +17,7 @@ public unsafe class Material : IDisposable
         Pointer = Marshal.AllocHGlobal(Marshal.SizeOf<PrimitiveMaterial>());
     }
 
-    public static Material CreateFromTexture(nint texture)
+    public static Material CreateFromTexture(nint texture, DirectXData data)
     {
         var material = new Material();
 
@@ -53,8 +53,8 @@ public unsafe class Material : IDisposable
             FaceCullEnable = false,
             DepthWriteEnable = false,
             DepthTestEnable = false,
-            TextureRemapAlpha = 0x2,
-            TextureRemapColor = 0x2,
+            TextureRemapAlpha = 2,
+            TextureRemapColor = 2,
         };
 
         return material;

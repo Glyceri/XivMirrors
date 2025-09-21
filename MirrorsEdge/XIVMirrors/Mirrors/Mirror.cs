@@ -17,7 +17,7 @@ internal class Mirror : IDisposable
     public Mirror(DirectXData directXData)
     {
         DirectXData     = directXData;
-        SquareBuffer    = CreateVertexBuffer(PrimitiveFactory.Quad());
+        SquareBuffer    = CreateVertexBuffer(PrimitiveFactory.Quad().vertices);
     }
 
     public VertexBuffer CreateVertexBuffer(IEnumerable<Vertex> vertices)

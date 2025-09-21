@@ -15,7 +15,8 @@ internal unsafe class VertexBuffer : IDisposable
         Buffer      = new VertexBufferBinding(buffer, 0, sizeof(Vertex));
     }
 
-    public int VertexCount => Vertices.Length;
+    public int VertexCount 
+        => Vertices.Length;
 
     public void Dispose()
     {

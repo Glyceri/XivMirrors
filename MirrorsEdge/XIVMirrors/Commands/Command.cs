@@ -33,11 +33,16 @@ internal abstract class Command : ICommand
 
         if (addedCommand)
         {
-            return;
+            MirrorServices.MirrorLog.LogInfo($"Successfully added the command: {InformationString}.");
         }
-
-        MirrorServices.MirrorLog.LogWarning($"Failed to add command: [{CommandCode}, {Description}].");
+        else
+        {
+            MirrorServices.MirrorLog.LogWarning($"Failed to add command: {InformationString}.");
+        }
     }
+
+    private string InformationString
+        => $"['Command: {CommandCode}', Description: '{Description}', Show in help: {ShowInHelp}]";
 
     public void Dispose()
     {
@@ -45,9 +50,11 @@ internal abstract class Command : ICommand
 
         if (removedSuccessfully)
         {
-            return;
+            MirrorServices.MirrorLog.LogInfo($"Successfully removed the command: {InformationString}.");
         }
-
-        MirrorServices.MirrorLog.LogWarning($"Failed to remove command: [{CommandCode}, {Description}].");
+        else
+        {
+            MirrorServices.MirrorLog.LogWarning($"Failed to remove command: {InformationString}.");
+        }
     }
 }

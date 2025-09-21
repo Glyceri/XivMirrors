@@ -1,6 +1,4 @@
 using Dalamud.Plugin;
-using FFXIVClientStructs.FFXIV.Client.Graphics.Render;
-using Lumina.Data.Structs;
 using MirrorsEdge.XIVMirrors.Memory;
 using MirrorsEdge.XIVMirrors.Cameras;
 using MirrorsEdge.XIVMirrors.Hooking;
@@ -10,6 +8,7 @@ using MirrorsEdge.XIVMirrors.Shaders;
 using MirrorsEdge.XIVMirrors.Windowing;
 using System.Reflection;
 using MirrorsEdge.XIVMirrors.ResourceHandling;
+using MirrorsEdge.XIVMirrors.Commands;
 
 namespace MirrorsEdge;
 
@@ -29,6 +28,8 @@ public sealed class MirrorsEdgePlugin : IDalamudPlugin
 
     private readonly ResourceLoader     ResourceLoader;
     private readonly ShaderHandler      ShaderHandler;
+
+    private readonly CommandHandler     CommandHandler;
 
     public MirrorsEdgePlugin(IDalamudPluginInterface dalamud)
     {
@@ -51,16 +52,20 @@ public sealed class MirrorsEdgePlugin : IDalamudPlugin
         CameraHandler       = new CameraHandler(DalamudServices, MirrorServices, HookManager.CameraHooks);
 
         WindowHandler       = new WindowHandler(DalamudServices, MirrorServices, CameraHandler, HookManager.RendererHook, HookManager.ScreenHook, ShaderHandler, DirectXData, HookManager.BackBufferHook, HookManager.CubeRenderHook);
+
+        CommandHandler      = new CommandHandler(DalamudServices, MirrorServices, WindowHandler);
     }
 
     public void Dispose()
     {
-        ResourceHandler.Dispose();
+        CommandHandler?.Dispose();
 
-        HookManager.Dispose();
-        WindowHandler.Dispose();
-        CameraHandler.Dispose();
+        ResourceHandler?.Dispose();
 
-        DirectXData.Dispose();
+        HookManager?.Dispose();
+        WindowHandler?.Dispose();
+        CameraHandler?.Dispose();
+
+        DirectXData?.Dispose();
     }
 }

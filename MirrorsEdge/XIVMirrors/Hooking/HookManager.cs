@@ -40,7 +40,8 @@ internal class HookManager : IDisposable
         Register(ScreenHook         = new ScreenHook(DalamudServices, MirrorServices, RendererHook));
         Register(BackBufferHook     = new BackBufferHook(DalamudServices, MirrorServices, DirectXData, RendererHook, ScreenHook, ShaderHandler));
         Register(ResourceHooks      = new ResourceHooks(DalamudServices, MirrorServices, ResourceHandler));
-        DalamudServices.Framework.RunOnTick(() => Register(ThatShitFromKara   = new ThatShitFromKara(DalamudServices, MirrorServices, directXData)));
+        
+        //DalamudServices.Framework.RunOnTick(() => Register(ThatShitFromKara   = new ThatShitFromKara(DalamudServices, MirrorServices, directXData)));
     }
 
     private void Register(IHookableElement element)

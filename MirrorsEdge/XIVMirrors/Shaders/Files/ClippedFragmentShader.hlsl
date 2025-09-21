@@ -4,7 +4,6 @@ struct MirrorShaderOutput
     float2 uv : TEXCOORD0;
 };
 
-
 Texture2D    flatTexture    : register(t0);
 SamplerState textureSampler : register(s0);
 

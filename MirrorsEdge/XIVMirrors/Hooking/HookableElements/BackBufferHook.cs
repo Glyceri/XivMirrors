@@ -1,22 +1,22 @@
-using FFXIVClientStructs.FFXIV.Client.Game.UI;
+using Dalamud.Bindings.ImGui;
+using Dalamud.Interface.Textures;
+using Dalamud.Interface.Textures.TextureWraps;
 using FFXIVClientStructs.FFXIV.Client.Graphics.Kernel;
 using FFXIVClientStructs.FFXIV.Client.Graphics.Render;
 using MirrorsEdge.XIVMirrors.Hooking.Enum;
 using MirrorsEdge.XIVMirrors.Memory;
-using MirrorsEdge.XIVMirrors.Mirrors;
 using MirrorsEdge.XIVMirrors.Rendering;
 using MirrorsEdge.XIVMirrors.Resources;
-using MirrorsEdge.XIVMirrors.Resources.Struct;
+using MirrorsEdge.XIVMirrors.Resources.Interfaces;
 using MirrorsEdge.XIVMirrors.Services;
 using MirrorsEdge.XIVMirrors.Shaders;
 using SharpDX;
 using SharpDX.Direct3D;
 using SharpDX.Direct3D11;
-using SharpDX.DXGI;
 using SharpDX.Mathematics.Interop;
 using System;
 using System.Diagnostics.CodeAnalysis;
-using static FFXIVClientStructs.FFXIV.Client.UI.Misc.GroupPoseModule;
+using System.Threading.Tasks;
 
 namespace MirrorsEdge.XIVMirrors.Hooking.HookableElements;
 
@@ -27,48 +27,27 @@ internal unsafe class BackBufferHook : HookableElement
     private readonly ScreenHook     ScreenHook;
     private readonly ShaderHandler  ShaderHandler;
 
-    private readonly Mirror Mirror;
+    private IDalamudTextureWrap dalamudBackBuffer;
+    
+    private MappedTexture?      backBufferWithUI;
+    private MappedTexture?      backBufferNoUI;
+    private MappedTexture?      nonTransparentDepthBuffer;
+    private MappedTexture?      transparentDepthBuffer;
+    private MappedTexture?      secondDalamudBackBuffer;
 
-    public MappedTexture? ThatOneSecretTexture;
+    private RenderTarget?       rtBackBufferWithUI;
+    private RenderTarget?       rtBackBufferNoUI;
+    private RenderTarget?       rtNonTransparentDepthBuffer;
+    private RenderTarget?       rtTransparentDepthBuffer;
+    private RenderTarget?       rtSecondDalamudBackBuffer;
 
-    private MappedTexture?  backBufferWithUI;
-    private MappedTexture?  backBufferNoUI;
-    private MappedTexture?  nonTransparentDepthBuffer;
-    private MappedTexture?  transparentDepthBuffer;
+    public  RenderTarget?       BackBufferWithUI              => rtBackBufferWithUI;
+    public  RenderTarget?       BackBufferNoUI                => rtBackBufferNoUI;
+    public  RenderTarget?       DepthBufferNoTransparency     => rtNonTransparentDepthBuffer;
+    public  RenderTarget?       DepthBufferWithTransparency   => rtTransparentDepthBuffer;
 
-    private RenderTarget?   rtBackBufferWithUI;
-    private RenderTarget?   rtBackBufferNoUI;
-    private RenderTarget?   rtNonTransparentDepthBuffer;
-    private RenderTarget?   rtTransparentDepthBuffer;
-
-    public  RenderTarget?   BackBufferWithUI              => rtBackBufferWithUI;
-    public  RenderTarget?   BackBufferNoUI                => rtBackBufferNoUI;
-    public  RenderTarget?   DepthBufferNoTransparency     => rtNonTransparentDepthBuffer;
-    public  RenderTarget?   DepthBufferWithTransparency   => rtTransparentDepthBuffer;
-
-    private readonly SharpDX.Direct3D11.Buffer VertexBuffer;
-    private readonly SharpDX.Direct3D11.Buffer IndexBuffer;
-
-    struct Vertex
-    {
-        public Vector3 Position;
-        public Vector2 TexCoord;
-    }
-
-    // Fullscreen quad in NDC (-1..1 space)
-    Vertex[] vertices = new[]
-    {
-            new Vertex { Position = new Vector3(-1f, -1f, 0f), TexCoord = new Vector2(0f, 1f) },
-            new Vertex { Position = new Vector3(-1f,  1f, 0f), TexCoord = new Vector2(0f, 0f) },
-            new Vertex { Position = new Vector3( 1f,  1f, 0f), TexCoord = new Vector2(1f, 0f) },
-            new Vertex { Position = new Vector3( 1f, -1f, 0f), TexCoord = new Vector2(1f, 1f) },
-        };
-
-    uint[] indices = new uint[]
-    {
-        0, 1, 2,
-        0, 2, 3
-    };
+    public  IDalamudTextureWrap DalamudBackBuffer             => dalamudBackBuffer;
+    public  RenderTarget?       SecondDalamudBackBuffer       => rtSecondDalamudBackBuffer;
 
     public BackBufferHook(DalamudServices dalamudServices, MirrorServices mirrorServices, DirectXData directXData, RendererHook rendererHook, ScreenHook screenHook, ShaderHandler shaderHandler) : base(dalamudServices, mirrorServices)
     {
@@ -77,23 +56,24 @@ internal unsafe class BackBufferHook : HookableElement
         ScreenHook      = screenHook;
         ShaderHandler   = shaderHandler;
 
-        Mirror = new Mirror(directXData);
-
         ScreenHook.RegisterScreenSizeChangeCallback(OnScreenSizeChanged);
 
-        VertexBuffer = SharpDX.Direct3D11.Buffer.Create(DirectXData.Device, BindFlags.VertexBuffer, vertices);
-        IndexBuffer  = SharpDX.Direct3D11.Buffer.Create(DirectXData.Device, BindFlags.IndexBuffer, indices);
-
-
-        if (((MyDevice*)DirectXData.KernelDevice)->someTexture != null)
+        ImGuiViewportTextureArgs textureArguments = new ImGuiViewportTextureArgs()
         {
-            ThatOneSecretTexture = new MappedTexture(DirectXData, ((MyDevice*)DirectXData.KernelDevice)->someTexture);
-        }
+            AutoUpdate              = true,
+            KeepTransparency        = false,
+            TakeBeforeImGuiRender   = true,
+            ViewportId              = ImGui.GetMainViewport().ID,
+        };
+
+        Task<IDalamudTextureWrap> taskTextureWrap = DalamudServices.TextureProvider.CreateFromImGuiViewportAsync(textureArguments);
+
+        dalamudBackBuffer = taskTextureWrap.Result;
     }
 
     public override void Init()
     {
-        DalamudServices.Framework.RunOnFrameworkThread(() => RendererHook.RegisterRenderPassListener(OnRenderPass));
+        _ = DalamudServices.Framework.RunOnFrameworkThread(() => RendererHook.RegisterRenderPassListener(OnRenderPass));
     }
 
     private void OnScreenSizeChanged(int newWidth, int newHeight)
@@ -105,13 +85,52 @@ internal unsafe class BackBufferHook : HookableElement
 
     private void OnRenderPass(RenderPass renderPass)
     {
-        if (renderPass == RenderPass.Post)
+        if (renderPass == RenderPass.Pre)
         {
-            return;
+            OnPreRenderPass();
         }
+        else if (renderPass == RenderPass.Post)
+        {
+            OnPostRenderPass();
+        }
+    }
 
-        return;
+    private void OnPostRenderPass()
+    {
+        try
+        {
+            using Texture2D backBuffer        = DirectXData.SwapChain.GetBackBuffer<Texture2D>(0);
 
+            Texture2DDescription desc   = backBuffer.Description;
+
+            desc.BindFlags              = BindFlags.ShaderResource | BindFlags.RenderTarget;
+            desc.Usage                  = ResourceUsage.Default;
+            desc.CpuAccessFlags         = CpuAccessFlags.None;
+
+            Texture2D backBufferCopy    = new Texture2D(DirectXData.Device, desc);
+
+            DirectXData.Context.CopyResource(backBuffer, backBufferCopy);
+
+            ShaderResourceView srv      = new ShaderResourceView(DirectXData.Device, backBufferCopy);
+
+            secondDalamudBackBuffer?.Dispose();
+
+            secondDalamudBackBuffer     = new MappedTexture(DirectXData, ref backBufferCopy, ref srv);
+
+            rtSecondDalamudBackBuffer?.Dispose();
+
+            rtSecondDalamudBackBuffer   = new RenderTarget(DirectXData, backBufferCopy);
+
+            CleanAlpha(ref secondDalamudBackBuffer, rtSecondDalamudBackBuffer);
+        }
+        catch(Exception e)
+        {
+            MirrorServices.MirrorLog.LogException(e);
+        }
+    }
+
+    private void OnPreRenderPass()
+    {
         try
         {
             if (!SetupBuffers())
@@ -124,15 +143,13 @@ internal unsafe class BackBufferHook : HookableElement
                 //return;
             }
 
+            CleanAlpha(ref backBufferWithUI, rtBackBufferWithUI);
+            CleanAlpha(ref backBufferNoUI, rtBackBufferNoUI);
+
             CleanCutout(ref nonTransparentDepthBuffer, rtNonTransparentDepthBuffer);
             CleanCutout(ref transparentDepthBuffer, rtTransparentDepthBuffer);
-
-            //CleanAlpha(ref backBufferWithUI, rtBackBufferWithUI);
-            //CleanAlpha(ref backBufferNoUI,   rtBackBufferNoUI);
-
-           
         }
-        catch(Exception e)
+        catch (Exception e)
         {
             MirrorServices.MirrorLog.LogError(e, "Fat chance your game just crashed.");
         }
@@ -159,14 +176,7 @@ internal unsafe class BackBufferHook : HookableElement
             return;
         }
 
-        using var backBufferTex = DirectXData.SwapChain.GetBackBuffer<Texture2D>(0);
-        using var backBufferRTV = new RenderTargetView(DirectXData.Device, backBufferTex);
-
-        DirectXData.Context.OutputMerger.SetRenderTargets(backBufferRTV);
-
-        //Viewport viewport = new Viewport(0, 0, (int)mappedTexture.Width, (int)mappedTexture.Height);
-        Viewport viewport = new Viewport(0, 0, (int)mappedTexture.Width / 2, (int)mappedTexture.Height / 2);
-
+        Viewport viewport = new Viewport(0, 0, (int)mappedTexture.Width, (int)mappedTexture.Height);
         DirectXData.Context.Rasterizer.SetViewport(viewport);
 
         DirectXData.Context.VertexShader.Set(ShaderHandler.AlphaShader.VertexShader);
@@ -175,7 +185,7 @@ internal unsafe class BackBufferHook : HookableElement
         DirectXData.Context.PixelShader.SetShaderResource(0, mappedTexture.ShaderResourceView);
         DirectXData.Context.PixelShader.SetSampler(0, ShaderHandler.AlphaShader.SamplerState);
 
-        //DirectXData.Context.OutputMerger.SetRenderTargets(renderTarget.RenderTargetView);
+        DirectXData.Context.OutputMerger.SetRenderTargets(renderTarget.RenderTargetView);
 
         DirectXData.Context.ClearRenderTargetView(renderTarget.RenderTargetView, new RawColor4(1, 0, 1, 1f));
 
@@ -192,8 +202,6 @@ internal unsafe class BackBufferHook : HookableElement
         DirectXData.Context.Draw(3, 0);
 
         DirectXData.Context.PixelShader.SetShaderResource(0, null);
-
-        DirectXData.Context.OutputMerger.ResetTargets();
     }
 
     private void CleanCutout(ref MappedTexture? mappedTexture, RenderTarget? renderTarget)
@@ -217,21 +225,7 @@ internal unsafe class BackBufferHook : HookableElement
             return;
         }
 
-
-        if (RendererHook.ProbablyReshadeBackbuffer == null)
-        {
-            return;
-        }
-
-        using Texture2D backBuffer = DirectXData.SwapChain.GetBackBuffer<Texture2D>(0);
-        using RenderTargetView backBufferRTV = new RenderTargetView(DirectXData.Device, backBuffer);
-
-        DirectXData.Context.OutputMerger.SetRenderTargets(RendererHook.ProbablyReshadeBackbuffer, backBufferRTV);
-
-
-        //Viewport viewport = new Viewport(0, 0, (int)mappedTexture.Width, (int)mappedTexture.Height);
-        Viewport viewport = new Viewport(0, 0, (int)mappedTexture.Width / 2, (int)mappedTexture.Height / 2);
-
+        Viewport viewport = new Viewport(0, 0, (int)mappedTexture.Width, (int)mappedTexture.Height);
         DirectXData.Context.Rasterizer.SetViewport(viewport);
 
         DirectXData.Context.VertexShader.Set(ShaderHandler.ClippedShader.VertexShader);
@@ -241,59 +235,25 @@ internal unsafe class BackBufferHook : HookableElement
 
         DirectXData.Context.VertexShader.SetConstantBuffer(0, mappedTexture.ConstantBuffer);
         DirectXData.Context.PixelShader.SetShaderResource(0, mappedTexture.ShaderResourceView);
-
         DirectXData.Context.PixelShader.SetSampler(0, ShaderHandler.ClippedShader.SamplerState);
 
-        //DirectXData.Context.OutputMerger.SetRenderTargets(renderTarget.RenderTargetView);
+        DirectXData.Context.OutputMerger.SetRenderTargets(renderTarget.RenderTargetView);
 
-        //DirectXData.Context.ClearRenderTargetView(currentRTV[0], new RawColor4(1, 0, 1, 1f));
+        DirectXData.Context.ClearRenderTargetView(renderTarget.RenderTargetView, new RawColor4(1, 0, 1, 1f));
 
-        // Depth state
-        var depthStencilDesc = new DepthStencilStateDescription
-        {
-           IsDepthEnabled = true,
-            DepthWriteMask = DepthWriteMask.All,
-            DepthComparison = Comparison.GreaterEqual // or GreaterEqual if the game uses reversed-Z
-        };
-        using var depthState = new DepthStencilState(DirectXData.Device, depthStencilDesc);
-        DirectXData.Context.OutputMerger.SetDepthStencilState(depthState);
+        BlendStateDescription blendDesc = new BlendStateDescription();
 
-        var blendDesc = new BlendStateDescription()
-        {
-            AlphaToCoverageEnable = false,
-            IndependentBlendEnable = false,
-        };
+        blendDesc.RenderTarget[0].IsBlendEnabled = false;
+        blendDesc.RenderTarget[0].RenderTargetWriteMask = ColorWriteMaskFlags.All;
 
-        blendDesc.RenderTarget[0] = new RenderTargetBlendDescription()
-        {
-            IsBlendEnabled = true,
-            SourceBlend = BlendOption.SourceAlpha,
-            DestinationBlend = BlendOption.InverseSourceAlpha,
-            BlendOperation = BlendOperation.Add,
-            SourceAlphaBlend = BlendOption.One,
-            DestinationAlphaBlend = BlendOption.Zero,
-            AlphaBlendOperation = BlendOperation.Add,
-            RenderTargetWriteMask = ColorWriteMaskFlags.All
-        };
+        DirectXData.Context.OutputMerger.SetBlendState(new BlendState(DirectXData.Device, blendDesc));
 
-        using var blendState = new BlendState(DirectXData.Device, blendDesc);
-
-        DirectXData.Context.OutputMerger.SetBlendState(blendState);
-
-        DirectXData.Context.InputAssembler.InputLayout = ShaderHandler.ClippedShader.InputLayout;
+        DirectXData.Context.InputAssembler.InputLayout = null;
         DirectXData.Context.InputAssembler.PrimitiveTopology = PrimitiveTopology.TriangleList;
 
-        DirectXData.Context.InputAssembler.SetVertexBuffers(0, new VertexBufferBinding(VertexBuffer, Utilities.SizeOf<Vertex>(), 0));
-        DirectXData.Context.InputAssembler.SetIndexBuffer(IndexBuffer, Format.R32_UInt, 0);
-        DirectXData.Context.InputAssembler.PrimitiveTopology = PrimitiveTopology.TriangleList;
-
-        DirectXData.Context.DrawIndexed(indices.Length, 0, 0);
+        DirectXData.Context.Draw(6, 0);
 
         DirectXData.Context.PixelShader.SetShaderResource(0, null);
-
-        DirectXData.Context.OutputMerger.ResetTargets();
-        DirectXData.Context.OutputMerger.SetBlendState(null);
-        DirectXData.Context.OutputMerger.SetDepthStencilState(null);
     }
 
     private bool OverrideMappedTexture(ref MappedTexture? mappedTexture, ref RenderTarget? renderTarget, Texture* texture)
@@ -358,37 +318,36 @@ internal unsafe class BackBufferHook : HookableElement
     {
         MirrorServices.MirrorLog.LogVerbose("Disposed buffers");
 
+        dalamudBackBuffer?.Dispose();
+
         backBufferWithUI?.Dispose();
         backBufferWithUI?.Dispose();
         nonTransparentDepthBuffer?.Dispose();
         transparentDepthBuffer?.Dispose();
+        secondDalamudBackBuffer?.Dispose();
 
         rtBackBufferWithUI?.Dispose();
         rtBackBufferWithUI?.Dispose();
         rtNonTransparentDepthBuffer?.Dispose();
         rtTransparentDepthBuffer?.Dispose();
+        rtSecondDalamudBackBuffer?.Dispose();
 
         backBufferWithUI            = null;
         backBufferNoUI              = null;
         nonTransparentDepthBuffer   = null;
         transparentDepthBuffer      = null;
+        secondDalamudBackBuffer     = null;
 
         rtBackBufferWithUI          = null;
         rtBackBufferWithUI          = null;
         rtNonTransparentDepthBuffer = null;
         rtTransparentDepthBuffer    = null;
+        rtSecondDalamudBackBuffer   = null;
     }
 
     public override void OnDispose()
     {
-        ThatOneSecretTexture?.Dispose();
-
-        VertexBuffer?.Dispose();
-        IndexBuffer?.Dispose();
-
         DisposeOldBuffers();
-
-        Mirror.Dispose();
 
         ScreenHook.DeregisterScreenSizeChangeCallback(OnScreenSizeChanged);
         RendererHook.DeregisterRenderPassListener(OnRenderPass);

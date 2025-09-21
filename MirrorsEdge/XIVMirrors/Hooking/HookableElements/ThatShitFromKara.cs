@@ -18,12 +18,12 @@ internal unsafe class ThatShitFromKara : HookableElement
 {
     private delegate nint CreateApricotTextureFromTex(nint apricot, nint texturePointer, long textureLength);
     private delegate nint PrimitiveServerCtorDelegate(nint thisPtr);
-    private delegate byte PrimitiveServerInitialize(nint primitiveServer, int width, int height, int paramFlags1, int paramFlags2, int lodOrUsageFlags, nint ownerId, nint deviceContext, nint unknownPrimitiveInitSettings);
+    private delegate byte PrimitiveServerInitialize(nint thisPtr, int unk1, int unk2, int unk3, int unk4, int unk5, nint unk6, nint deviceContext, nint unknownPrimitiveInitSettings);
     private delegate void PrimitiveServerLoadResource(nint thisPtr);
     private delegate void PrimitiveServerBegin(nint thisPtr);
     private delegate void PrimitiveServerSpursSortUnencumbered(nint thisPtr);
     private delegate void PrimitiveServerRender(nint thisPtr);
-    public delegate nint PrimitiveContextDrawCommand(nint primitiveContext, ulong unk1, uint unk2, uint unk3, nint unk4);
+    public delegate nint PrimitiveContextDrawCommand(nint thisPtr, ulong unk1, uint unk2, uint unk3, nint unk4);
     private delegate nint KernelDeviceCreateVertexDeclaration(nint thisPtr, nint unk1, uint unk2);
     private delegate nint EnvironmentManagerUpdate(nint thisPtr, nint unk1);
 

@@ -7,8 +7,6 @@ using MirrorsEdge.XIVMirrors.Services;
 using MirrorsEdge.XIVMirrors.Shaders;
 using System;
 using MirrorsEdge.XIVMirrors.Resources;
-using FFXIVClientStructs.FFXIV.Client.Graphics.Scene;
-using Dalamud.Interface.Utility;
 
 namespace MirrorsEdge.XIVMirrors.Windowing.Windows;
 
@@ -67,9 +65,21 @@ internal unsafe class DebugWindow : MirrorWindow
 
     private void DrawBackBuffer()
     {
-        if (BackBufferHook.ThatOneSecretTexture != null)
+        if (BackBufferHook.DalamudBackBuffer != null)
         {
-            ImGui.Image(BackBufferHook.ThatOneSecretTexture.Handle, new System.Numerics.Vector2(500, 500));
+            ImGui.Image(BackBufferHook.DalamudBackBuffer.Handle, new System.Numerics.Vector2(500, 500));
+        }
+
+        ImGui.SameLine();
+
+        if (BackBufferHook.SecondDalamudBackBuffer != null)
+        {
+            ImGui.Image(BackBufferHook.SecondDalamudBackBuffer.Handle, new System.Numerics.Vector2(500, 500));
+        }
+
+        //if (BackBufferHook.ThatOneSecretTexture != null)
+        {
+            //ImGui.Image(BackBufferHook.ThatOneSecretTexture.Handle, new System.Numerics.Vector2(500, 500));
         }
 
         DrawMappedTexture(BackBufferHook.BackBufferNoUI);

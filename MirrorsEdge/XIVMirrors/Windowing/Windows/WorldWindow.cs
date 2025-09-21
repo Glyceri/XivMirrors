@@ -1,16 +1,13 @@
 using Dalamud.Bindings.ImGui;
 using FFXIVClientStructs.FFXIV.Client.Graphics.Environment;
+using FFXIVClientStructs.FFXIV.Client.Graphics.Render;
 using FFXIVClientStructs.FFXIV.Client.Graphics.Scene;
-using FFXIVClientStructs.FFXIV.Client.LayoutEngine;
-using FFXIVClientStructs.FFXIV.Client.LayoutEngine.Layer;
+using FFXIVClientStructs.FFXIV.Client.System.Framework;
 using FFXIVClientStructs.FFXIV.Common.Math;
-using FFXIVClientStructs.Interop;
-using FFXIVClientStructs.STD;
 using MirrorsEdge.XIVMirrors.Services;
 using System;
 using static FFXIVClientStructs.FFXIV.Client.Graphics.Scene.Object;
 using Object = FFXIVClientStructs.FFXIV.Client.Graphics.Scene.Object;
-using BaseLayoutManager = FFXIVClientStructs.FFXIV.Client.LayoutEngine.LayoutManager;
 
 namespace MirrorsEdge.XIVMirrors.Windowing.Windows;
 
@@ -24,17 +21,38 @@ internal unsafe class WorldWindow : MirrorWindow
 
     public WorldWindow(WindowHandler windowHandler, DalamudServices dalamudServices, MirrorServices mirrorServices) : base(windowHandler, dalamudServices, mirrorServices, "World Window", ImGuiWindowFlags.None)
     {
-        
+        Open();
+
+        //float* yPos = &;
+
+        //*yPos = 2;
     }
 
     protected override void OnDraw()
     {
-        
+        totalCount = 0;
+
+        try
+        {
+            //Handle(&EnvManager.Instance()->EnvScene->EnvSpaces, 0);
+
+        }
+        catch (Exception ex)
+        {
+            MirrorServices.MirrorLog.LogException(ex);
+        }
     }
 
-    void DrawToScreen(Object* obj)
+    void DrawToScreen(Object* obj, out System.Numerics.Vector2 screenCoords)
     {
-        if (DalamudServices.GameGui.WorldToScreen(obj->Position, out var screenCoords))
+        screenCoords = Vector2.Zero;
+
+        if (obj == null)
+        {
+            return;
+        }
+
+        if (DalamudServices.GameGui.WorldToScreen(obj->Position, out screenCoords))
         {
             // So, while WorldToScreen will return false if the point is off of game client screen, to
             // to avoid performance issues, we have to manually determine if creating a window would
@@ -56,7 +74,7 @@ internal unsafe class WorldWindow : MirrorWindow
 
             ImGui.SetNextWindowPos(new Vector2(screenCoords.X, screenCoords.Y));
 
-            ImGui.SetNextWindowBgAlpha(1);
+            ImGui.SetNextWindowBgAlpha(100);
 
             if (ImGui.Begin(
                     $"Actor{totalCount}##ActorWindow{totalCount}",
@@ -68,8 +86,35 @@ internal unsafe class WorldWindow : MirrorWindow
                     ImGuiWindowFlags.NoDocking |
                     ImGuiWindowFlags.NoFocusOnAppearing |
                     ImGuiWindowFlags.NoNav))
+            {
                 ImGui.Text(objectText);
-            ImGui.End();
+                ImGui.End();
+            }
+        }
+    }
+
+    void DrawObj(Object* obj, int depth)
+    {
+        totalCount++;
+
+        DrawToScreen(obj, out System.Numerics.Vector2 screenCoords);
+
+        try
+        {
+            string line = "";
+
+            for (int i = 0; i < depth; i++)
+            {
+                line += "    ";
+            }
+
+            line += obj->Position + ", " + screenCoords;
+
+            ImGui.TextColored(depth == 0 ? new Vector4(1, 0, 1, 1) : new Vector4(1, 1, 1, 1), line);
+        }
+        catch (Exception e)
+        {
+            MirrorServices.MirrorLog.Log(e.Message);
         }
     }
 
@@ -80,26 +125,8 @@ internal unsafe class WorldWindow : MirrorWindow
             return;
         }
 
-        DrawToScreen(obj);
 
-        totalCount++;
-
-        try
-        {
-            string line = "";
-
-            for (int i = 0; i < depth; i++) {
-                line += "    ";
-            }
-
-            line += obj->Position;
-
-            ImGui.TextColored(depth == 0 ? new Vector4(1, 0, 1, 1) : new Vector4(1, 1, 1, 1), line);
-        }
-        catch (Exception e)
-        { 
-            MirrorServices.MirrorLog.Log(e.Message); 
-        }
+        DrawObj(obj, depth);
 
         try
         {
@@ -109,17 +136,17 @@ internal unsafe class WorldWindow : MirrorWindow
             {
                 try
                 {
-                   Handle(enumerator.Current, depth+1);
+                    Handle(enumerator.Current, depth + 1);
                 }
-                catch (Exception e) 
+                catch (Exception e)
                 {
                     MirrorServices.MirrorLog.Log(e.Message);
                 }
             }
         }
-        catch (Exception e) 
+        catch (Exception e)
         {
-            MirrorServices.MirrorLog.Log(e.Message); 
+            MirrorServices.MirrorLog.Log(e.Message);
         }
     }
 }

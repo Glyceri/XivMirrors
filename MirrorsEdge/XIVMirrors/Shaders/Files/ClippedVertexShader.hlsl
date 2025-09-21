@@ -50,6 +50,6 @@ MirrorShaderOutput VSMain(uint id : SV_VertexID)
 
     output.position = float4(vertices[vertexIndex], 0.0, 1.0);
     output.texcoord = uvs[vertexIndex];
-
+    
     return output;
 }

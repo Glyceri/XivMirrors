@@ -46,6 +46,8 @@ internal unsafe class BackBufferHook : HookableElement
 
     private readonly CancellationTokenSource cancellationTokenSource;
 
+    public MappedTexture? DepthStencilTexture;
+
     public BackBufferHook(DalamudServices dalamudServices, MirrorServices mirrorServices, DirectXData directXData, RendererHook rendererHook, ScreenHook screenHook, ShaderHandler shaderHandler) : base(dalamudServices, mirrorServices)
     {
         DirectXData     = directXData;
@@ -176,6 +178,8 @@ internal unsafe class BackBufferHook : HookableElement
 
     private void OnPreRenderPass()
     {
+        MirrorServices.MirrorLog.LogVerbose("Depth Stencil: " + DirectXData.Context.OutputMerger.DepthStencilState);
+
         try
         {
             if (!SetupBuffers())
@@ -362,6 +366,8 @@ internal unsafe class BackBufferHook : HookableElement
     private void DisposeOldBuffers()
     {
         MirrorServices.MirrorLog.LogVerbose("Disposed buffers");
+
+        DepthStencilTexture?.Dispose();
 
         dalamudBackBuffer?.Dispose();
 

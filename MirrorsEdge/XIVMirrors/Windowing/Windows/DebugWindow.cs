@@ -63,8 +63,34 @@ internal unsafe class DebugWindow : MirrorWindow
         ImGui.Image(mappedTexture.Handle, new System.Numerics.Vector2(500, 500));
     }
 
+    int ticker = 0;
+
     private void DrawBackBuffer()
     {
+        ticker = 0;
+
+        if (ImGui.BeginListBox("##listy", new System.Numerics.Vector2(ImGui.GetContentRegionAvail().X, 500)))
+        {
+
+            foreach (MappedTexture texture in RendererHook.MappedTextures)
+            {
+                ImGui.Image(texture.Handle, new System.Numerics.Vector2(200, 160));
+
+                ticker++;
+
+                if (ticker >= 5)
+                {
+                    ticker = 0;
+                }
+                else
+                {
+                    ImGui.SameLine();
+                }
+            }
+
+            ImGui.EndListBox();
+        }
+
         if (BackBufferHook.DalamudBackBuffer != null)
         {
             ImGui.Image(BackBufferHook.DalamudBackBuffer.Handle, new System.Numerics.Vector2(500, 500));

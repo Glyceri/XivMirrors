@@ -1,9 +1,8 @@
 using Dalamud.Hooking;
 using Dalamud.Interface.Utility;
-using Dalamud.Utility.Signatures;
-using FFXIVClientStructs.FFXIV.Client.System.Framework;
-using MirrorsEdge.XIVMirrors.Hooking.Enum;
+using MirrorsEdge.XIVMirrors.Memory;
 using MirrorsEdge.XIVMirrors.Services;
+using SharpDX.DXGI;
 using System;
 using System.Collections.Generic;
 using System.Numerics;
@@ -12,57 +11,65 @@ namespace MirrorsEdge.XIVMirrors.Hooking.HookableElements;
 
 internal unsafe class ScreenHook : HookableElement
 {
-    private readonly RendererHook RendererHook;
+    public  delegate void ScreensizeDelegate(uint newWidth, uint newHeight);
+    private delegate int  OMResizeBuffersDelegate(nint swapChain, uint bufferCount, uint width, uint height, Format format, uint swapChainFlags);
 
-    public delegate void ScreensizeDelegate(int newWidth, int newHeight);
+    private readonly List<ScreensizeDelegate>       screenSizeListeners = [];
+    private readonly Hook<OMResizeBuffersDelegate>? omResizeBuffersHook;
 
-    private delegate bool GameWindow_SetWindowSizeDelegate(GameWindow* gameWindow, int newWidth, int newHeight);
+    private uint lastWidth;
+    private uint lastHeight;
 
-    [Signature("E8 ?? ?? ?? ?? 42 0F B7 84 BF 90 00 00 00", DetourName = nameof(GameWindow_SetWindowSizeDetour))]
-    private readonly Hook<GameWindow_SetWindowSizeDelegate>? GameWindow_SetWindowSizeHook = null;
-
-    private readonly List<ScreensizeDelegate> screenSizeListeners = [];
-
-    private Vector2 _lastWindowSize;
-
-    public ScreenHook(DalamudServices dalamudServices, MirrorServices mirrorServices, RendererHook rendererHook) : base(dalamudServices, mirrorServices)
+    public ScreenHook(DalamudServices dalamudServices, MirrorServices mirrorServices, DirectXData directXData) : base(dalamudServices, mirrorServices)
     {
-        RendererHook = rendererHook;
+        nint swapChainVTable                = GetVTable(directXData.SwapChain.NativePointer);
 
-        RendererHook.RegisterRenderPassListener(OnRenderPass);
-    }
+        nint vtableResizeBuffersAddress     = GetVTableAddress(swapChainVTable, 13);
 
-    public override void Init()
-    {
-        GameWindow_SetWindowSizeHook?.Enable();
-    }
-    
-    private void HandleImGuiScreenSize()
-    {
-        if (_lastWindowSize == ImGuiHelpers.MainViewport.WorkSize)
-        {
-            return;
-        }
-
-        _lastWindowSize = ImGuiHelpers.MainViewport.WorkSize;
-
-        RunCallbacks((int)_lastWindowSize.X, (int)_lastWindowSize.Y);
-
-        MirrorServices.MirrorLog.LogVerbose(ImGuiHelpers.MainViewport.WorkSize);
-    }
-
-    private void OnRenderPass(RenderPass renderPass)
-    {
-        if (renderPass == RenderPass.Post)
-        {
-            return;
-        }
+        omResizeBuffersHook                 = DalamudServices.Hooking.HookFromAddress<OMResizeBuffersDelegate>(vtableResizeBuffersAddress, OMResizeBuffersDetour);
 
         HandleImGuiScreenSize();
     }
 
-    private void RunCallbacks(int newWidth, int newHeight)
+    public override void Init()
     {
+        omResizeBuffersHook?.Enable();
+    }
+    
+    private void HandleImGuiScreenSize()
+    {
+        Vector2 currentWorkSize = ImGuiHelpers.MainViewport.WorkSize;
+
+        uint currentWidth       = (uint)currentWorkSize.X;
+        uint currentHeight      = (uint)currentWorkSize.Y;
+
+        HandleObtainedSize(currentWidth, currentHeight);
+    }
+
+    private void HandleObtainedSize(uint currentWidth, uint currentHeight)
+    {
+        if (currentWidth == lastWidth && currentHeight == lastHeight)
+        {
+            return;
+        }
+
+        try
+        {
+            RunCallbacks(currentWidth, currentHeight);
+        }
+        catch (Exception ex)
+        {
+            MirrorServices.MirrorLog.LogException(ex);
+        }
+
+        lastWidth = currentWidth;
+        lastHeight = currentHeight;
+    }
+
+    private void RunCallbacks(uint newWidth, uint newHeight)
+    {
+        MirrorServices.MirrorLog.LogInfo($"XivMirrors detected a change in screensize [{newWidth}, {newHeight}].");
+
         foreach (ScreensizeDelegate screenSizeDelegate in screenSizeListeners)
         {
             try
@@ -76,13 +83,13 @@ internal unsafe class ScreenHook : HookableElement
         }
     }
 
-    private bool GameWindow_SetWindowSizeDetour(GameWindow* gameWindow, int newWidth, int newHeight)
+    private int OMResizeBuffersDetour(nint swapChain, uint bufferCount, uint width, uint height, Format format, uint swapChainFlags)
     {
-        MirrorServices.MirrorLog.LogVerbose($"Detected a new window size: [{newWidth}, {newHeight}]");
+        MirrorServices.MirrorLog.LogVerbose($"Buffer Size Change Requested by the game [{bufferCount}, {width}, {height}, {format}, {swapChainFlags}].");
 
-        RunCallbacks(newWidth, newHeight);
+        HandleObtainedSize(width, height);
 
-        return GameWindow_SetWindowSizeHook!.Original(gameWindow, newWidth, newHeight);
+        return omResizeBuffersHook!.Original(swapChain, bufferCount, width, height, format, swapChainFlags);
     }
 
     public void RegisterScreenSizeChangeCallback(ScreensizeDelegate onScreenSizeChange)
@@ -97,6 +104,9 @@ internal unsafe class ScreenHook : HookableElement
         _ = screenSizeListeners.Remove(onScreenSizeChange);
     }
 
+    /// <summary>
+    /// Special spaghetti method hooked right before IMGUI draw.
+    /// </summary>
     public void OnImGuiDraw()
     {
         HandleImGuiScreenSize();
@@ -104,10 +114,8 @@ internal unsafe class ScreenHook : HookableElement
 
     public override void OnDispose()
     {
-        RendererHook.DeregisterRenderPassListener(OnRenderPass);
-
-        GameWindow_SetWindowSizeHook?.Disable();
-        GameWindow_SetWindowSizeHook?.Dispose();
+        omResizeBuffersHook?.Disable();
+        omResizeBuffersHook?.Dispose();
 
         screenSizeListeners.Clear();
     }

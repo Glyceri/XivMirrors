@@ -1,13 +1,13 @@
 using Dalamud.Bindings.ImGui;
 using Dalamud.Interface.Textures;
 using Dalamud.Interface.Textures.TextureWraps;
+using Dalamud.Plugin.Services;
 using FFXIVClientStructs.FFXIV.Client.Graphics.Kernel;
 using FFXIVClientStructs.FFXIV.Client.Graphics.Render;
 using MirrorsEdge.XIVMirrors.Hooking.Enum;
 using MirrorsEdge.XIVMirrors.Memory;
 using MirrorsEdge.XIVMirrors.Rendering;
 using MirrorsEdge.XIVMirrors.Resources;
-using MirrorsEdge.XIVMirrors.Resources.Interfaces;
 using MirrorsEdge.XIVMirrors.Services;
 using MirrorsEdge.XIVMirrors.Shaders;
 using SharpDX;
@@ -16,6 +16,7 @@ using SharpDX.Direct3D11;
 using SharpDX.Mathematics.Interop;
 using System;
 using System.Diagnostics.CodeAnalysis;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace MirrorsEdge.XIVMirrors.Hooking.HookableElements;
@@ -27,27 +28,23 @@ internal unsafe class BackBufferHook : HookableElement
     private readonly ScreenHook     ScreenHook;
     private readonly ShaderHandler  ShaderHandler;
 
-    private IDalamudTextureWrap dalamudBackBuffer;
+    private Task<IDalamudTextureWrap>? textureWrapTask;
+
+    private IDalamudTextureWrap?    dalamudBackBuffer;
     
-    private MappedTexture?      backBufferWithUI;
-    private MappedTexture?      backBufferNoUI;
-    private MappedTexture?      nonTransparentDepthBuffer;
-    private MappedTexture?      transparentDepthBuffer;
-    private MappedTexture?      secondDalamudBackBuffer;
+    private MappedTexture?          backBufferWithUI;
+    private MappedTexture?          backBufferNoUI;
+    private MappedTexture?          nonTransparentDepthBuffer;
+    private MappedTexture?          transparentDepthBuffer;
+    private MappedTexture?          secondDalamudBackBuffer;
 
-    private RenderTarget?       rtBackBufferWithUI;
-    private RenderTarget?       rtBackBufferNoUI;
-    private RenderTarget?       rtNonTransparentDepthBuffer;
-    private RenderTarget?       rtTransparentDepthBuffer;
-    private RenderTarget?       rtSecondDalamudBackBuffer;
+    private RenderTarget?           rtBackBufferWithUI;
+    private RenderTarget?           rtBackBufferNoUI;
+    private RenderTarget?           rtNonTransparentDepthBuffer;
+    private RenderTarget?           rtTransparentDepthBuffer;
+    private RenderTarget?           rtSecondDalamudBackBuffer;
 
-    public  RenderTarget?       BackBufferWithUI              => rtBackBufferWithUI;
-    public  RenderTarget?       BackBufferNoUI                => rtBackBufferNoUI;
-    public  RenderTarget?       DepthBufferNoTransparency     => rtNonTransparentDepthBuffer;
-    public  RenderTarget?       DepthBufferWithTransparency   => rtTransparentDepthBuffer;
-
-    public  IDalamudTextureWrap DalamudBackBuffer             => dalamudBackBuffer;
-    public  RenderTarget?       SecondDalamudBackBuffer       => rtSecondDalamudBackBuffer;
+    private readonly CancellationTokenSource cancellationTokenSource;
 
     public BackBufferHook(DalamudServices dalamudServices, MirrorServices mirrorServices, DirectXData directXData, RendererHook rendererHook, ScreenHook screenHook, ShaderHandler shaderHandler) : base(dalamudServices, mirrorServices)
     {
@@ -56,7 +53,64 @@ internal unsafe class BackBufferHook : HookableElement
         ScreenHook      = screenHook;
         ShaderHandler   = shaderHandler;
 
+        cancellationTokenSource = new CancellationTokenSource();
+
         ScreenHook.RegisterScreenSizeChangeCallback(OnScreenSizeChanged);
+
+        DalamudServices.Framework.Update += OnUpdate;
+    }
+
+    public override void Init()
+    {
+        _ = DalamudServices.Framework.RunOnFrameworkThread(() => RendererHook.RegisterRenderPassListener(OnRenderPass));
+    }
+
+    public RenderTarget? BackBufferWithUI              
+        => rtBackBufferWithUI;
+
+    public RenderTarget? BackBufferNoUI                
+        => rtBackBufferNoUI;
+
+    public RenderTarget? DepthBufferNoTransparency     
+        => rtNonTransparentDepthBuffer;
+
+    public RenderTarget? DepthBufferWithTransparency   
+        => rtTransparentDepthBuffer;
+
+    public IDalamudTextureWrap? DalamudBackBuffer             
+        => dalamudBackBuffer;
+
+    public RenderTarget? SecondDalamudBackBuffer      
+        => rtSecondDalamudBackBuffer;
+
+    private void OnUpdate(IFramework framework)
+    {
+        if (dalamudBackBuffer != null)
+        {
+            return;
+        }
+
+        if (textureWrapTask != null)
+        {
+            if (!textureWrapTask.IsCompleted)
+            {
+                return;
+            }
+
+            dalamudBackBuffer = textureWrapTask.Result;
+
+            textureWrapTask?.Dispose();
+            textureWrapTask = null;
+
+            return;
+        }
+
+        textureWrapTask = CreateTextureWrap();
+    }
+
+    private Task<IDalamudTextureWrap> CreateTextureWrap()
+    {
+        MirrorServices.MirrorLog.Log("Created dalamud viewport texture wrap.");
 
         ImGuiViewportTextureArgs textureArguments = new ImGuiViewportTextureArgs()
         {
@@ -66,20 +120,11 @@ internal unsafe class BackBufferHook : HookableElement
             ViewportId              = ImGui.GetMainViewport().ID,
         };
 
-        Task<IDalamudTextureWrap> taskTextureWrap = DalamudServices.TextureProvider.CreateFromImGuiViewportAsync(textureArguments);
-
-        dalamudBackBuffer = taskTextureWrap.Result;
+        return DalamudServices.TextureProvider.CreateFromImGuiViewportAsync(textureArguments, cancellationToken: cancellationTokenSource.Token);
     }
 
-    public override void Init()
+    private void OnScreenSizeChanged(uint newWidth, uint newHeight)
     {
-        _ = DalamudServices.Framework.RunOnFrameworkThread(() => RendererHook.RegisterRenderPassListener(OnRenderPass));
-    }
-
-    private void OnScreenSizeChanged(int newWidth, int newHeight)
-    {
-        MirrorServices.MirrorLog.LogVerbose("Screen size changed");
-
         DisposeOldBuffers();
     }
 
@@ -320,6 +365,8 @@ internal unsafe class BackBufferHook : HookableElement
 
         dalamudBackBuffer?.Dispose();
 
+        dalamudBackBuffer = null;
+
         backBufferWithUI?.Dispose();
         backBufferWithUI?.Dispose();
         nonTransparentDepthBuffer?.Dispose();
@@ -347,6 +394,11 @@ internal unsafe class BackBufferHook : HookableElement
 
     public override void OnDispose()
     {
+        DalamudServices.Framework.Update -= OnUpdate;
+
+        cancellationTokenSource?.Cancel();
+        cancellationTokenSource?.Dispose();
+
         DisposeOldBuffers();
 
         ScreenHook.DeregisterScreenSizeChangeCallback(OnScreenSizeChanged);

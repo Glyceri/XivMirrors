@@ -37,7 +37,7 @@ internal class HookManager : IDisposable
 
         Register(CameraHooks        = new CameraHooks(DalamudServices, MirrorServices));
         Register(RendererHook       = new RendererHook(DalamudServices, MirrorServices, DirectXData));
-        Register(ScreenHook         = new ScreenHook(DalamudServices, MirrorServices, RendererHook));
+        Register(ScreenHook         = new ScreenHook(DalamudServices, MirrorServices, DirectXData));
         Register(BackBufferHook     = new BackBufferHook(DalamudServices, MirrorServices, DirectXData, RendererHook, ScreenHook, ShaderHandler));
         Register(ResourceHooks      = new ResourceHooks(DalamudServices, MirrorServices, ResourceHandler));
         

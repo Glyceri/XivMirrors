@@ -48,7 +48,7 @@ internal unsafe class DebugWindow : MirrorWindow
         
     }
 
-    private void OnScreensizeChanged(int newWidth, int newHeight)
+    private void OnScreensizeChanged(uint newWidth, uint newHeight)
     {
         
     }

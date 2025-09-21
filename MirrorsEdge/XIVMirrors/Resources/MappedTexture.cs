@@ -3,7 +3,6 @@ using FFXIVClientStructs.FFXIV.Client.Graphics.Kernel;
 using MirrorsEdge.XIVMirrors.Memory;
 using MirrorsEdge.XIVMirrors.Resources.Struct;
 using SharpDX.Direct3D11;
-using System;
 
 namespace MirrorsEdge.XIVMirrors.Resources;
 
@@ -15,9 +14,10 @@ internal unsafe class MappedTexture : BasicTexture
     public override Texture2D           Texture             { get; }
     public override ShaderResourceView  ShaderResourceView  { get; }
 
-    protected readonly bool     isNative;
-    protected readonly Texture* nativeTexture;
-    
+    private readonly bool     isNative;
+    private readonly Texture* nativeTexture;
+    private readonly nint     nativeTextureNint;
+
     /// <summary>
     /// Register a native game texture as a mapped texture.
     /// </summary>
@@ -27,6 +27,7 @@ internal unsafe class MappedTexture : BasicTexture
         isNative            = true;
         
         this.nativeTexture  = nativeTexture;
+        nativeTextureNint   = (nint)nativeTexture->D3D11Texture2D;
 
         Texture             = new Texture2D((nint)nativeTexture->D3D11Texture2D);
         ShaderResourceView  = new ShaderResourceView((nint)nativeTexture->D3D11ShaderResourceView);
@@ -115,6 +116,11 @@ internal unsafe class MappedTexture : BasicTexture
         }
 
         if (nativeTexture == null)
+        {
+            return false;
+        }
+
+        if ((nint)nativeTexture->D3D11Texture2D != nativeTextureNint)
         {
             return false;
         }

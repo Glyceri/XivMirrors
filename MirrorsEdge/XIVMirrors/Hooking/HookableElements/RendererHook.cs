@@ -1,78 +1,46 @@
 using Dalamud.Hooking;
-using Dalamud.Utility.Signatures;
 using MirrorsEdge.XIVMirrors.Hooking.Enum;
-using MirrorsEdge.XIVMirrors.Hooking.Structs;
 using MirrorsEdge.XIVMirrors.Memory;
 using MirrorsEdge.XIVMirrors.Services;
-using SharpDX.Direct3D11;
 using System;
 using System.Collections.Generic;
-using System.Runtime.InteropServices;
-using KernalDevice = FFXIVClientStructs.FFXIV.Client.Graphics.Kernel.Device;
 
 namespace MirrorsEdge.XIVMirrors.Hooking.HookableElements;
 
 internal unsafe class RendererHook : HookableElement
 {
-    private readonly DirectXData DirectXData;
-
-    public delegate void RenderPassDelegate(RenderPass renderPass);
+    public  delegate void RenderPassDelegate(RenderPass renderPass);
+    private delegate int  OMPresentDelegate(nint swapChain, uint syncInterval, uint flags);
     
-
-    private delegate void DXGIPresentDelegate(IntPtr ptr);
-
-    private delegate void RenderThreadSetRenderTargetDelegate(KernalDevice* deviceInstance, SetRenderTargetCommand* command);
-
-    [Signature("E8 ?? ?? ?? ?? E9 ?? ?? ?? ?? F3 0F 10 5F 18", DetourName = nameof(RenderThreadSetRenderTargetDetour))]
-    private Hook<RenderThreadSetRenderTargetDelegate>? RenderThreadSetRenderTargetHook = null;
-
-    [Signature("E8 ?? ?? ?? ?? C6 46 79 00 48 8B 8E 88 0A 0E 00", DetourName = nameof(DXGIPresentDetour))]
-    private readonly Hook<DXGIPresentDelegate>? DXGIPresentHook = null;
-
-    private readonly List<RenderPassDelegate> _renderPasses         = [];
-
-    delegate void OMSetRenderTargetsDelegate(IntPtr deviceContextPtr, int numViews, IntPtr rtvPtr, IntPtr dsvPtr);
-    delegate int OMPresent(IntPtr swapChain, uint erm, uint flags);
-
-    private readonly Hook<OMSetRenderTargetsDelegate>? SetRenderTargetHook;
-    private readonly Hook<OMPresent>? OmPresentHook;
-
-    bool postPresent = false;
+    private readonly List<RenderPassDelegate>  renderPasses         = [];
+    private readonly Hook<OMPresentDelegate>?  OMPresentHook;
 
     public RendererHook(DalamudServices dalamudServices, MirrorServices mirrorServices, DirectXData directXData) : base(dalamudServices, mirrorServices)
     {
-        DirectXData = directXData;
+        nint swapChainVTable                = GetVTable(directXData.SwapChain.NativePointer);
 
-        IntPtr contextPtr = DirectXData.Device.ImmediateContext.NativePointer;
-        IntPtr vtable = Marshal.ReadIntPtr(contextPtr);
+        nint vtablePresentAddress           = GetVTableAddress(swapChainVTable, 8);
 
-        // OMSetRenderTargets is 41st method in vtable (0-based index)
-        IntPtr omSetPtr = Marshal.ReadIntPtr(vtable, 33 * IntPtr.Size);
-
-       
-
-        SetRenderTargetHook = DalamudServices.Hooking.HookFromAddress<OMSetRenderTargetsDelegate>(omSetPtr, OMSetRenderTargetsHooked);
-
-        IntPtr swapchainPtr = DirectXData.SwapChain.NativePointer;
-        IntPtr swapVTable = Marshal.ReadIntPtr(swapchainPtr);
-
-        IntPtr yaya = Marshal.ReadIntPtr(swapVTable, 8 * IntPtr.Size);
-
-        OmPresentHook = DalamudServices.Hooking.HookFromAddress<OMPresent>(yaya, ProperPresentDetour);
+        OMPresentHook                       = DalamudServices.Hooking.HookFromAddress<OMPresentDelegate>(vtablePresentAddress, ProperPresentDetour);
     }
 
-    private int ProperPresentDetour(IntPtr swapChain, uint erm, uint flags)
+    public override void Init()
+    {
+        OMPresentHook?.Enable();
+    }
+
+    private int ProperPresentDetour(nint swapChain, uint syncInterval, uint flags)
     {
         try
         {
-            foreach (RenderPassDelegate renderPass in _renderPasses)
+            foreach (RenderPassDelegate renderPass in renderPasses)
             {
                 renderPass?.Invoke(RenderPass.Pre);
             }
 
-            int returner = OmPresentHook!.Original(swapChain, erm, flags);
+            int returner = OMPresentHook!.Original(swapChain, syncInterval, flags);
 
-            foreach (RenderPassDelegate renderPass in _renderPasses)
+            foreach (RenderPassDelegate renderPass in renderPasses)
             {
                 renderPass?.Invoke(RenderPass.Post);
             }
@@ -83,120 +51,27 @@ internal unsafe class RendererHook : HookableElement
         {
             MirrorServices.MirrorLog.LogException(e);
 
-            return OmPresentHook!.Original(swapChain, erm, flags);
-        }
-    }
-
-    public override void Init()
-    {
-        //DXGIPresentHook?.Enable();
-
-        OmPresentHook?.Enable();
-
-        //RenderThreadSetRenderTargetHook?.Enable();
-
-        //SetRenderTargetHook?.Enable();
-    }
-
-    List<nint> uniques = new List<nint>();
-
-    public DepthStencilView? ProbablyReshadeBackbuffer;
-    public Texture2D? PropablyTexture;
-
-    private void OMSetRenderTargetsHooked(IntPtr contextPtr, int numViews, IntPtr rtvPtr, IntPtr dsvPtr)
-    {
-
-        _ = uniques.Remove(dsvPtr);
-
-        uniques.Add(dsvPtr);
-
-        try
-        {
-            //if (numViews == 1) 
-            {
-                ProbablyReshadeBackbuffer = new DepthStencilView(dsvPtr);
-            }
-        }
-        catch (Exception ex)
-        {
-            MirrorServices.MirrorLog.LogVerbose(ex);
-        }
-
-        SetRenderTargetHook!.Original(contextPtr, numViews, rtvPtr, dsvPtr);
-    }
-
-
-
-    private void DXGIPresentDetour(IntPtr ptr)
-    {
-        try
-        {
-            foreach (RenderPassDelegate renderPass in _renderPasses)
-            {
-                renderPass?.Invoke(RenderPass.Pre);
-            }
-
-            DXGIPresentHook!.Original(ptr);
-
-            ProbablyReshadeBackbuffer = null!;
-
-            foreach (RenderPassDelegate renderPass in _renderPasses)
-            {
-                renderPass?.Invoke(RenderPass.Post);
-            }
-
-            MirrorServices.MirrorLog.LogVerbose("Post Present");
-            postPresent = true;
-        }
-        catch (Exception ex)
-        {
-            MirrorServices.MirrorLog.LogError(ex, "erm");
-        }
-    }
-
-    private readonly List<nint> UniqueDepthBuffers = new List<nint>();
-    public readonly List<ShaderResourceView> SRVs = new List<ShaderResourceView>();
-
-
-
-    private void RenderThreadSetRenderTargetDetour(KernalDevice* deviceInstance, SetRenderTargetCommand* command)
-    {
-        try
-        {
-            RenderThreadSetRenderTargetHook!.Original(deviceInstance, command);
-
-        }
-        catch (Exception ex)
-        {
-            MirrorServices.MirrorLog.LogError(ex, "erm");
+            return OMPresentHook!.Original(swapChain, syncInterval, flags);
         }
     }
 
     public void RegisterRenderPassListener(RenderPassDelegate renderDelegate)
     {
-        _ = _renderPasses.Remove(renderDelegate);
+        _ = renderPasses.Remove(renderDelegate);
 
-        _renderPasses.Add(renderDelegate);
+        renderPasses.Add(renderDelegate);
     }
 
     public void DeregisterRenderPassListener(RenderPassDelegate renderDelegate)
     {
-        _ = _renderPasses.Remove(renderDelegate);
+        _ = renderPasses.Remove(renderDelegate);
     }
 
     public override void OnDispose()
     {
-        SetRenderTargetHook?.Dispose();
+        OMPresentHook?.Dispose();
 
-        OmPresentHook?.Dispose();
-
-        _renderPasses.Clear();
-
-        RenderThreadSetRenderTargetHook?.Disable();
-        RenderThreadSetRenderTargetHook?.Dispose();
-
-        DXGIPresentHook?.Disable();
-        DXGIPresentHook?.Dispose();
+        renderPasses.Clear();
     }
 }
 

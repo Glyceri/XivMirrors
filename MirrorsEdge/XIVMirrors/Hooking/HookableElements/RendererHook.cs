@@ -138,8 +138,6 @@ internal unsafe class RendererHook : HookableElement
                 renderPass?.Invoke(RenderPass.Pre);
             }
 
-            MirrorServices.MirrorLog.LogVerbose("Present: " + Control.Instance()->CameraManager.GetActiveCamera()->SceneCamera.RenderCamera->NearPlane + ", " + Control.Instance()->CameraManager.GetActiveCamera()->SceneCamera.RenderCamera->FarPlane);
-
             bindCount = 0;
             bindcount2 = 0;
             texturesThisFrame.Clear();

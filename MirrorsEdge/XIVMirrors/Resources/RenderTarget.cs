@@ -1,5 +1,4 @@
 using Dalamud.Bindings.ImGui;
-using FFXIVClientStructs.FFXIV.Client.Game.Control;
 using MirrorsEdge.XIVMirrors.Memory;
 using MirrorsEdge.XIVMirrors.Resources.Struct;
 using SharpDX.Direct3D;

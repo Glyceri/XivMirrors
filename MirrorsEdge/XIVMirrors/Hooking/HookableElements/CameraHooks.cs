@@ -3,13 +3,18 @@ using Dalamud.Utility.Signatures;
 using FFXIVClientStructs.FFXIV.Client.Game;
 using FFXIVClientStructs.FFXIV.Client.Game.Control;
 using MirrorsEdge.XIVMirrors.Cameras.CameraTypes;
+using MirrorsEdge.XIVMirrors.Hooking.Enum;
+using MirrorsEdge.XIVMirrors.Hooking.Structs;
 using MirrorsEdge.XIVMirrors.Memory;
 using MirrorsEdge.XIVMirrors.Services;
+using RenderCamera = FFXIVClientStructs.FFXIV.Client.Graphics.Render.Camera;
 
 namespace MirrorsEdge.XIVMirrors.Hooking.HookableElements;
 
 internal unsafe class CameraHooks : HookableElement
 {
+    private readonly RendererHook RendererHook;
+
     private delegate Camera* CameraManager_GetActiveCameraDelegate(CameraManager* cameraManager);
     private delegate Camera* Camera_CtorDelegate(Camera* camera);
 
@@ -21,9 +26,50 @@ internal unsafe class CameraHooks : HookableElement
 
     private MirrorCamera? OverrideCamera;
 
-    public CameraHooks(DalamudServices dalamudServices, MirrorServices mirrorServices) : base(dalamudServices, mirrorServices) 
+    private CameraSettings cameraSettings;
+
+    public CameraHooks(DalamudServices dalamudServices, MirrorServices mirrorServices, RendererHook rendererHook) : base(dalamudServices, mirrorServices) 
     {
-        
+        RendererHook   = rendererHook;
+
+        cameraSettings = new CameraSettings();
+
+        RendererHook.RegisterRenderPassListener(OnRenderPass);
+    }
+
+    public override void Init()
+    {
+        CameraManager_GetActiveCameraHook?.Enable();
+        Camera_CtorHook?.Enable();
+    }
+
+    private void OnRenderPass(RenderPass renderPass)
+    {
+        if (renderPass == RenderPass.Post)
+        {
+            return;
+        }
+
+        if (Control.Instance() == null)
+        {
+            return;
+        }
+
+        Camera* activeCamera = Control.Instance()->CameraManager.GetActiveCamera();
+
+        if (activeCamera == null)
+        {
+            return;
+        }
+
+        RenderCamera* renderCamera = activeCamera->SceneCamera.RenderCamera;
+
+        if (renderCamera == null)
+        {
+            return;
+        }
+
+        cameraSettings = new CameraSettings(renderCamera);
     }
 
     public GameAllocation<Camera> SpawnCamera(Camera* clone = null)
@@ -45,11 +91,8 @@ internal unsafe class CameraHooks : HookableElement
         OverrideCamera = overrideCamera;
     }
 
-    public override void Init()
-    {
-        CameraManager_GetActiveCameraHook?.Enable();
-        Camera_CtorHook?.Enable();
-    }
+    public CameraSettings GetCameraSettings()
+        => cameraSettings;
 
     private Camera* CameraManager_GetActiveCameraDetour(CameraManager* cameraManager)
     {
@@ -70,6 +113,8 @@ internal unsafe class CameraHooks : HookableElement
 
     public override void OnDispose()
     {
+        RendererHook.DeregisterRenderPassListener(OnRenderPass);
+
         CameraManager_GetActiveCameraHook?.Dispose();
         Camera_CtorHook?.Dispose();
     }

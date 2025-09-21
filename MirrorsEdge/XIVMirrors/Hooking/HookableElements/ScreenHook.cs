@@ -17,8 +17,8 @@ internal unsafe class ScreenHook : HookableElement
     private readonly List<ScreensizeDelegate>       screenSizeListeners = [];
     private readonly Hook<OMResizeBuffersDelegate>? omResizeBuffersHook;
 
-    private uint lastWidth;
-    private uint lastHeight;
+    private uint lastWidth  = 0;
+    private uint lastHeight = 0;
 
     public ScreenHook(DalamudServices dalamudServices, MirrorServices mirrorServices, DirectXData directXData) : base(dalamudServices, mirrorServices)
     {
@@ -27,13 +27,13 @@ internal unsafe class ScreenHook : HookableElement
         nint vtableResizeBuffersAddress     = GetVTableAddress(swapChainVTable, 13);
 
         omResizeBuffersHook                 = DalamudServices.Hooking.HookFromAddress<OMResizeBuffersDelegate>(vtableResizeBuffersAddress, OMResizeBuffersDetour);
-
-        HandleImGuiScreenSize();
     }
 
     public override void Init()
     {
         omResizeBuffersHook?.Enable();
+
+        HandleImGuiScreenSize();
     }
     
     private void HandleImGuiScreenSize()

@@ -146,7 +146,7 @@ internal unsafe class BackBufferHook : HookableElement
     {
         try
         {
-            using Texture2D backBuffer        = DirectXData.SwapChain.GetBackBuffer<Texture2D>(0);
+            using Texture2D backBuffer  = DirectXData.SwapChain.GetBackBuffer<Texture2D>(0);
 
             Texture2DDescription desc   = backBuffer.Description;
 
@@ -178,18 +178,11 @@ internal unsafe class BackBufferHook : HookableElement
 
     private void OnPreRenderPass()
     {
-        MirrorServices.MirrorLog.LogVerbose("Depth Stencil: " + DirectXData.Context.OutputMerger.DepthStencilState);
-
         try
         {
             if (!SetupBuffers())
             {
                 return;
-            }
-
-            if (!MirrorServices.Configuration.DebugClearAlpha)
-            {
-                //return;
             }
 
             CleanAlpha(ref backBufferWithUI, rtBackBufferWithUI);

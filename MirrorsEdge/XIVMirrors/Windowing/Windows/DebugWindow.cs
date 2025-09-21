@@ -7,6 +7,7 @@ using MirrorsEdge.XIVMirrors.Services;
 using MirrorsEdge.XIVMirrors.Shaders;
 using System;
 using MirrorsEdge.XIVMirrors.Resources;
+using System.Numerics;
 
 namespace MirrorsEdge.XIVMirrors.Windowing.Windows;
 
@@ -24,10 +25,11 @@ internal unsafe class DebugWindow : MirrorWindow
     private readonly ShaderHandler  ShaderHandler;
     private readonly DirectXData    DirectXData;
     private readonly BackBufferHook BackBufferHook;
+    private readonly CubeRenderHook CubeRenderHook;
 
     private bool cameraHasChanged = false;
 
-    public DebugWindow(WindowHandler windowHandler, DalamudServices dalamudServices, MirrorServices mirrorServices, CameraHandler cameraHandler, RendererHook rendererHook, ScreenHook screenHook, ShaderHandler shaderFactory, DirectXData directXData, BackBufferHook backBufferHook) : base(windowHandler, dalamudServices, mirrorServices, "Mirrors Dev Window", ImGuiWindowFlags.None)
+    public DebugWindow(WindowHandler windowHandler, DalamudServices dalamudServices, MirrorServices mirrorServices, CameraHandler cameraHandler, RendererHook rendererHook, ScreenHook screenHook, ShaderHandler shaderFactory, DirectXData directXData, BackBufferHook backBufferHook, CubeRenderHook cubeRenderHook) : base(windowHandler, dalamudServices, mirrorServices, "Mirrors Dev Window", ImGuiWindowFlags.None)
     {
         CameraHandler   = cameraHandler;
         RendererHook    = rendererHook;
@@ -35,6 +37,7 @@ internal unsafe class DebugWindow : MirrorWindow
         ShaderHandler   = shaderFactory;
         DirectXData     = directXData;
         BackBufferHook  = backBufferHook;
+        CubeRenderHook  = cubeRenderHook;
 
         ScreenHook.RegisterScreenSizeChangeCallback(OnScreensizeChanged);
 
@@ -67,6 +70,22 @@ internal unsafe class DebugWindow : MirrorWindow
 
     private void DrawBackBuffer()
     {
+        Vector2 size = ImGui.GetContentRegionAvail();
+
+        if (CubeRenderHook.OutputView != null)
+        {
+            ImGui.Image(new ImTextureID(CubeRenderHook.OutputView.NativePointer), size * 0.5f);
+        }
+
+        ImGui.SameLine();
+
+        if (CubeRenderHook.DepthView != null)
+        {
+            ImGui.Image(new ImTextureID(CubeRenderHook.DepthView.NativePointer), size * 0.5f);
+        }
+
+        ImGui.NewLine();
+
         ticker = 0;
 
         if (ImGui.BeginListBox("##listy", new System.Numerics.Vector2(ImGui.GetContentRegionAvail().X, 500)))

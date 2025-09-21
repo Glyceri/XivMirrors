@@ -1,6 +1,5 @@
 using MirrorsEdge.XIVMirrors.Hooking.HookableElements;
 using MirrorsEdge.XIVMirrors.Memory;
-using MirrorsEdge.XIVMirrors.Hooking.HookableElements;
 using MirrorsEdge.XIVMirrors.Hooking.Interfaces;
 using MirrorsEdge.XIVMirrors.Services;
 using MirrorsEdge.XIVMirrors.Shaders;
@@ -24,8 +23,8 @@ internal class HookManager : IDisposable
     public readonly RendererHook        RendererHook;
     public readonly ScreenHook          ScreenHook;
     public readonly BackBufferHook      BackBufferHook;
+    public readonly CubeRenderHook      CubeRenderHook;
     public readonly ResourceHooks       ResourceHooks;
-    public ThatShitFromKara    ThatShitFromKara;
 
     public HookManager(DalamudServices dalamudServices, MirrorServices mirrorServices, DirectXData directXData, ShaderHandler shaderHandler, ResourceHandler resourceHandler)
     {
@@ -35,21 +34,28 @@ internal class HookManager : IDisposable
         ShaderHandler   = shaderHandler;
         ResourceHandler = resourceHandler;
 
-        Register(CameraHooks        = new CameraHooks(DalamudServices, MirrorServices));
         Register(RendererHook       = new RendererHook(DalamudServices, MirrorServices, DirectXData));
+        Register(CameraHooks        = new CameraHooks(DalamudServices, MirrorServices, RendererHook));
         Register(ScreenHook         = new ScreenHook(DalamudServices, MirrorServices, DirectXData));
         Register(BackBufferHook     = new BackBufferHook(DalamudServices, MirrorServices, DirectXData, RendererHook, ScreenHook, ShaderHandler));
+        Register(CubeRenderHook     = new CubeRenderHook(DalamudServices, MirrorServices, DirectXData, RendererHook, CameraHooks, ScreenHook, ShaderHandler));
         Register(ResourceHooks      = new ResourceHooks(DalamudServices, MirrorServices, ResourceHandler));
-        
-        //DalamudServices.Framework.RunOnTick(() => Register(ThatShitFromKara   = new ThatShitFromKara(DalamudServices, MirrorServices, directXData)));
+
+        Initialize();
     }
 
     private void Register(IHookableElement element)
     {
         _ = _hookableElements.Remove(element);
         _hookableElements.Add(element);
+    }
 
-        element.Init();
+    private void Initialize()
+    {
+        foreach (IHookableElement hookableElement in _hookableElements)
+        {
+            hookableElement.Init();
+        }
     }
 
     public void Dispose()

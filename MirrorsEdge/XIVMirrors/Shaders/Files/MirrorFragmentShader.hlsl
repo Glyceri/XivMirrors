@@ -40,8 +40,17 @@ float4 PSMain(MirrorShaderOutput mirrorShaderOutput) : SV_Target
     if (depthModel > depthNoTransparency)
     {
         finalColour = modelMapColour;
-    }
-    
+        
+        if (depthTransparency > depthModel)
+        {
+            float4 srcColor = finalColour;
+            float alpha     = dot(srcColor.rgb, float3(0.299, 0.587, 0.114)); // luminance as alpha
+            float4 dstColor = backBufferNoUIColour;
+            
+            finalColour = dstColor;
+        }
+    }    
+
     finalColour.a = 1;
     
     return finalColour;

@@ -22,7 +22,7 @@ internal unsafe class RenderTarget : BasicTexture
             Height              = reference.Description.Height,
             MipLevels           = 1,
             ArraySize           = 1,
-            Format              = Format.R16G16B16A16_UNorm,
+            Format              = Format.R16G16B16A16_Float,
             SampleDescription   = new SharpDX.DXGI.SampleDescription(1, 0),
             Usage               = ResourceUsage.Default,
             BindFlags           = BindFlags.RenderTarget | BindFlags.ShaderResource,
@@ -35,7 +35,7 @@ internal unsafe class RenderTarget : BasicTexture
         ShaderResourceViewDescription srvDesc = new ShaderResourceViewDescription()
         {
             Dimension   = ShaderResourceViewDimension.Texture2D,
-            Format      = Format.R16G16B16A16_UNorm,
+            Format      = Format.R16G16B16A16_Float,
             Texture2D   = new ShaderResourceViewDescription.Texture2DResource()
             {
                 MipLevels       = 1,
@@ -76,7 +76,7 @@ internal unsafe class RenderTarget : BasicTexture
             Height              = baseDescription.Height,
             MipLevels           = 1,
             ArraySize           = 1,
-            Format              = Format.R8G8B8A8_UNorm,
+            Format              = Format.R16G16B16A16_Float,
             SampleDescription   = new SampleDescription(1, 0),
             Usage               = ResourceUsage.Default,
             BindFlags           = BindFlags.RenderTarget | BindFlags.ShaderResource,

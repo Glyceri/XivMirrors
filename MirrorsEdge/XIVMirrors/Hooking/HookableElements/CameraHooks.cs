@@ -36,26 +36,35 @@ internal unsafe class CameraHooks : HookableElement
     private float  NearPlane        = 0;
     private float  FarPlane         = 0;
 
+    private delegate nint EnvironmentManagerUpdate(nint thisPtr, nint unk1);
+
+    [Signature("48 89 5C 24 ?? 55 56 57 41 55 41 56 48 8D AC 24 ?? ?? ?? ?? 48 81 EC ?? ?? ?? ?? 48 8B 05", DetourName = nameof(EnvironmentManagerUpdateDetour))]
+    private readonly Hook<EnvironmentManagerUpdate>? EnvironmentManagerUpdateHook = null!;
+
     public CameraHooks(DalamudServices dalamudServices, MirrorServices mirrorServices, RendererHook rendererHook) : base(dalamudServices, mirrorServices) 
     {
         RendererHook   = rendererHook;
 
-        RendererHook.RegisterRenderPassListener(OnRenderPass);
+        //RendererHook.RegisterRenderPassListener(OnRenderPass);
     }
 
     public override void Init()
     {
         CameraManager_GetActiveCameraHook?.Enable();
         Camera_CtorHook?.Enable();
+
+        EnvironmentManagerUpdateHook?.Enable();
     }
 
-    private void OnRenderPass(RenderPass renderPass)
+    private nint EnvironmentManagerUpdateDetour(nint thisPtr, nint unk1)
     {
-        if (renderPass == RenderPass.Post)
-        {
-            return;
-        }
+        OnRenderPass();
 
+        return EnvironmentManagerUpdateHook!.Original(thisPtr, unk1);
+    }
+
+    private void OnRenderPass()
+    {
         if (Control.Instance() == null)
         {
             return;
@@ -139,7 +148,9 @@ internal unsafe class CameraHooks : HookableElement
 
     public override void OnDispose()
     {
-        RendererHook.DeregisterRenderPassListener(OnRenderPass);
+        EnvironmentManagerUpdateHook?.Dispose();
+
+        //RendererHook.DeregisterRenderPassListener(OnRenderPass);
 
         CameraManager_GetActiveCameraHook?.Dispose();
         Camera_CtorHook?.Dispose();

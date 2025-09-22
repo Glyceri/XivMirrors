@@ -16,7 +16,7 @@ internal unsafe class DepthTexture : BasicTexture
     {
         Texture2DDescription texture2DDescription = new Texture2DDescription()
         {
-            Format              = Format.R24_UNorm_X8_Typeless,
+            Format              = Format.R32_Float,
             MipLevels           = 1,
             ArraySize           = 1,
             SampleDescription   = new SampleDescription(1, 0),
@@ -30,7 +30,7 @@ internal unsafe class DepthTexture : BasicTexture
         DepthStencilViewDescription depthStencilViewDescription = new DepthStencilViewDescription()
         {
             Dimension = DepthStencilViewDimension.Texture2D,
-            Format    = Format.D24_UNorm_S8_UInt,
+            Format    = Format.D32_Float,
             Texture2D = new DepthStencilViewDescription.Texture2DResource
             {
                 MipSlice = 0,
@@ -39,7 +39,7 @@ internal unsafe class DepthTexture : BasicTexture
 
         ShaderResourceViewDescription shaderResourceViewDescription = new ShaderResourceViewDescription()
         {
-            Format    = Format.R24_UNorm_X8_Typeless,
+            Format    = Format.R32_Float,
             Dimension = SharpDX.Direct3D.ShaderResourceViewDimension.Texture2D,
             Texture2D = new ShaderResourceViewDescription.Texture2DResource
             {
@@ -61,7 +61,7 @@ internal unsafe class DepthTexture : BasicTexture
         DepthStencilViewDescription depthStencilViewDescription = new DepthStencilViewDescription()
         {
             Dimension = DepthStencilViewDimension.Texture2D,
-            Format    = Format.D24_UNorm_S8_UInt,
+            Format    = Format.D32_Float,
             Texture2D = new DepthStencilViewDescription.Texture2DResource
             {
                 MipSlice = 0,
@@ -70,7 +70,7 @@ internal unsafe class DepthTexture : BasicTexture
 
         ShaderResourceViewDescription shaderResourceViewDescription = new ShaderResourceViewDescription()
         {
-            Format    = Format.R24_UNorm_X8_Typeless,
+            Format    = Format.R32_Float,
             Dimension = SharpDX.Direct3D.ShaderResourceViewDimension.Texture2D,
             Texture2D = new ShaderResourceViewDescription.Texture2DResource
             {
@@ -106,7 +106,7 @@ internal unsafe class DepthTexture : BasicTexture
 
         Texture2DDescription newDescription = new Texture2DDescription()
         { 
-            Format              = Format.D32_Float,
+            Format              = Format.R32_Float,
             MipLevels           = 1,
             ArraySize           = 1,
             SampleDescription   = new SampleDescription(1, 0),

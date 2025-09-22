@@ -8,3 +8,4 @@ internal unsafe struct MyDevice
 {
     [FieldOffset(0x920)] public Texture* someTexture;
 }
+

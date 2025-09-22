@@ -67,6 +67,21 @@ internal unsafe class BackBufferHook : HookableElement
         _ = DalamudServices.Framework.RunOnFrameworkThread(() => RendererHook.RegisterRenderPassListener(OnRenderPass));
     }
 
+    public MappedTexture? BackBufferWithUIBase
+        => backBufferWithUI;
+
+    public MappedTexture? BackBufferNoUIBase
+        => backBufferNoUI;
+
+    public MappedTexture? NonTransparentDepthBufferBase
+        => nonTransparentDepthBuffer;
+
+    public MappedTexture? TransparentDepthBufferBase
+        => transparentDepthBuffer;
+
+    public MappedTexture? SecondDalamudBackBufferBase
+        => secondDalamudBackBuffer;
+
     public RenderTarget? BackBufferWithUI              
         => rtBackBufferWithUI;
 
@@ -221,11 +236,9 @@ internal unsafe class BackBufferHook : HookableElement
         Viewport viewport = new Viewport(0, 0, (int)mappedTexture.Width, (int)mappedTexture.Height);
         DirectXData.Context.Rasterizer.SetViewport(viewport);
 
-        DirectXData.Context.VertexShader.Set(ShaderHandler.AlphaShader.VertexShader);
-        DirectXData.Context.PixelShader.Set(ShaderHandler.AlphaShader.FragmentShader);
+        ShaderHandler.AlphaShader.Bind();
 
         DirectXData.Context.PixelShader.SetShaderResource(0, mappedTexture.ShaderResourceView);
-        DirectXData.Context.PixelShader.SetSampler(0, ShaderHandler.AlphaShader.SamplerState);
 
         DirectXData.Context.OutputMerger.SetRenderTargets(renderTarget.RenderTargetView);
 
@@ -238,7 +251,6 @@ internal unsafe class BackBufferHook : HookableElement
 
         DirectXData.Context.OutputMerger.SetBlendState(new BlendState(DirectXData.Device, blendDesc));
 
-        DirectXData.Context.InputAssembler.InputLayout       = null;
         DirectXData.Context.InputAssembler.PrimitiveTopology = PrimitiveTopology.TriangleList;
 
         DirectXData.Context.Draw(3, 0);
@@ -270,14 +282,12 @@ internal unsafe class BackBufferHook : HookableElement
         Viewport viewport = new Viewport(0, 0, (int)mappedTexture.Width, (int)mappedTexture.Height);
         DirectXData.Context.Rasterizer.SetViewport(viewport);
 
-        DirectXData.Context.VertexShader.Set(ShaderHandler.ClippedShader.VertexShader);
-        DirectXData.Context.PixelShader.Set(ShaderHandler.ClippedShader.FragmentShader);
+        ShaderHandler.ClippedShader.Bind();
 
         mappedTexture.UpdateConstantBuffer(DirectXData);
 
         DirectXData.Context.VertexShader.SetConstantBuffer(0, mappedTexture.ConstantBuffer);
         DirectXData.Context.PixelShader.SetShaderResource(0, mappedTexture.ShaderResourceView);
-        DirectXData.Context.PixelShader.SetSampler(0, ShaderHandler.ClippedShader.SamplerState);
 
         DirectXData.Context.OutputMerger.SetRenderTargets(renderTarget.RenderTargetView);
 
@@ -289,8 +299,7 @@ internal unsafe class BackBufferHook : HookableElement
         blendDesc.RenderTarget[0].RenderTargetWriteMask = ColorWriteMaskFlags.All;
 
         DirectXData.Context.OutputMerger.SetBlendState(new BlendState(DirectXData.Device, blendDesc));
-
-        DirectXData.Context.InputAssembler.InputLayout = null;
+       
         DirectXData.Context.InputAssembler.PrimitiveTopology = PrimitiveTopology.TriangleList;
 
         DirectXData.Context.Draw(6, 0);
@@ -348,8 +357,8 @@ internal unsafe class BackBufferHook : HookableElement
 
         bool failed = false;
 
-        failed |= !OverrideMappedTexture(ref backBufferWithUI,          ref rtBackBufferWithUI,             renderTargetManager->BackBuffer);
-        failed |= !OverrideMappedTexture(ref backBufferNoUI,            ref rtBackBufferNoUI,               renderTargetManager->BackBufferNoUI);
+        failed |= !OverrideMappedTexture(ref backBufferWithUI,          ref rtBackBufferWithUI,             renderTargetManager->BackBufferCopy3);
+        failed |= !OverrideMappedTexture(ref backBufferNoUI,            ref rtBackBufferNoUI,               renderTargetManager->BackBufferNoUICopy10);
         failed |= !OverrideMappedTexture(ref nonTransparentDepthBuffer, ref rtNonTransparentDepthBuffer,    renderTargetManager->DepthBufferNoTransparency);
         failed |= !OverrideMappedTexture(ref transparentDepthBuffer,    ref rtTransparentDepthBuffer,       renderTargetManager->DepthBufferTransparency);
 

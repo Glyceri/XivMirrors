@@ -1,10 +1,11 @@
 using SharpDX;
+using PrimitiveDeclaration = (MirrorsEdge.XIVMirrors.Rendering.Vertex[] vertices, ushort[] indices);
 
 namespace MirrorsEdge.XIVMirrors.Rendering;
 
 internal static class PrimitiveFactory
 {
-    public static (Vertex[] vertices, ushort[] indices) Quad()
+    public static PrimitiveDeclaration Quad()
     {
         Vertex[] vertices =
         [
@@ -23,29 +24,55 @@ internal static class PrimitiveFactory
         return (vertices, indices);
     }
 
-    public static (Vertex[] vertices, ushort[] indices) Cube()
+    public static PrimitiveDeclaration Cube()
     {
         Vertex[] vertices =
-        [
-            new Vertex(new Vector3(-1, -1, -1),   new Vector2(0, 1)),
-            new Vertex(new Vector3(-1, 1, -1),    new Vector2(0, 0)),
-            new Vertex(new Vector3(1, 1, -1),     new Vector2(1, 0)),
-            new Vertex(new Vector3(1, -1, -1),    new Vector2(1, 1)),
+        {
+            // Back face
+            new Vertex(new Vector3(-1, -1, -1), new Vector2(0, 1)),
+            new Vertex(new Vector3(-1,  1, -1), new Vector2(0, 0)),
+            new Vertex(new Vector3( 1,  1, -1), new Vector2(1, 0)),
+            new Vertex(new Vector3( 1, -1, -1), new Vector2(1, 1)),
 
-            new Vertex(new Vector3(-1, -1, 0),    new Vector2(0, 1)),
-            new Vertex(new Vector3(-1, 1, 0),     new Vector2(0, 0)),
-            new Vertex(new Vector3(1, 1, 0),      new Vector2(1, 0)),
-            new Vertex(new Vector3(1, -1, 0),     new Vector2(1, 1))
-        ];
+            // Front face
+            new Vertex(new Vector3(-1, -1, 1), new Vector2(0, 1)),
+            new Vertex(new Vector3( 1, -1, 1), new Vector2(1, 1)),
+            new Vertex(new Vector3( 1,  1, 1), new Vector2(1, 0)),
+            new Vertex(new Vector3(-1,  1, 1), new Vector2(0, 0)),
+
+            // Left face
+            new Vertex(new Vector3(-1, -1, 1), new Vector2(0, 1)),
+            new Vertex(new Vector3(-1,  1, 1), new Vector2(0, 0)),
+            new Vertex(new Vector3(-1,  1, -1), new Vector2(1, 0)),
+            new Vertex(new Vector3(-1, -1, -1), new Vector2(1, 1)),
+
+            // Right face
+            new Vertex(new Vector3(1, -1, -1), new Vector2(0, 1)),
+            new Vertex(new Vector3(1,  1, -1), new Vector2(0, 0)),
+            new Vertex(new Vector3(1,  1,  1), new Vector2(1, 0)),
+            new Vertex(new Vector3(1, -1,  1), new Vector2(1, 1)),
+
+            // Top face
+            new Vertex(new Vector3(-1, 1, -1), new Vector2(0, 1)),
+            new Vertex(new Vector3(-1, 1,  1), new Vector2(0, 0)),
+            new Vertex(new Vector3( 1, 1,  1), new Vector2(1, 0)),
+            new Vertex(new Vector3( 1, 1, -1), new Vector2(1, 1)),
+
+            // Bottom face
+            new Vertex(new Vector3(-1, -1, -1), new Vector2(0, 1)),
+            new Vertex(new Vector3( 1, -1, -1), new Vector2(1, 1)),
+            new Vertex(new Vector3( 1, -1,  1), new Vector2(1, 0)),
+            new Vertex(new Vector3(-1, -1,  1), new Vector2(0, 0)),
+        };
 
         ushort[] indices =
         {
-            0, 1, 2,  0, 2, 3,  // back
-            4, 6, 5,  4, 7, 6,  // front
-            4, 5, 1,  4, 1, 0,  // left
-            3, 2, 6,  3, 6, 7,  // right
-            1, 5, 6,  1, 6, 2,  // top
-            4, 0, 3,  4, 3, 7   // bottom
+            0,  1,  2,  0,  2,  3,      // Back
+            4,  5,  6,  4,  6,  7,      // Front
+            8,  9,  10, 8,  10, 11,     // Left
+            12, 13, 14, 12, 14, 15,     // Right
+            16, 17, 18, 16, 18, 19,     // Top
+            20, 21, 22, 20, 22, 23      // Bottom
         };
 
         return (vertices, indices);

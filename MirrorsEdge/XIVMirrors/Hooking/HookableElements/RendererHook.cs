@@ -58,9 +58,6 @@ internal unsafe class RendererHook : HookableElement
     public override void Init()
     {
         OMPresentHook?.Enable();
-
-        OmSetRenderTargetsHook?.Enable();
-        OMSetRenderTargetsAndUnorderedAccessViewsHook?.Enable();
     }
 
     private void DoCriminalThings(nint tex, ref List<MappedTexture> textureList)

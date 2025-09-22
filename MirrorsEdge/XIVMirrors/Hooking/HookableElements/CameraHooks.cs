@@ -7,6 +7,8 @@ using MirrorsEdge.XIVMirrors.Hooking.Enum;
 using MirrorsEdge.XIVMirrors.Hooking.Structs;
 using MirrorsEdge.XIVMirrors.Memory;
 using MirrorsEdge.XIVMirrors.Services;
+using SharpDX;
+using System;
 using RenderCamera = FFXIVClientStructs.FFXIV.Client.Graphics.Render.Camera;
 
 namespace MirrorsEdge.XIVMirrors.Hooking.HookableElements;
@@ -26,13 +28,20 @@ internal unsafe class CameraHooks : HookableElement
 
     private MirrorCamera? OverrideCamera;
 
-    private CameraSettings cameraSettings;
+    private delegate nint GetEngineCoreSingletonDelegate();
+
+    [Signature("E8 ?? ?? ?? ?? 48 8D 4C 24 ?? 48 89 4C 24 ?? 4C 8D 4D ?? 4C 8D 44 24 ??", DetourName = nameof(EngineCoreSingletonDetour))]
+    private readonly Hook<GetEngineCoreSingletonDelegate>? GetEngineCoreSingletonHook = null;
+
+    private nint EngineCoreSingleton;
+
+    private Matrix ViewProjMatrix   = Matrix.Identity;
+    private Matrix ViewMatrix       = Matrix.Identity;
+    private Matrix ProjectionMatrix = Matrix.Identity;
 
     public CameraHooks(DalamudServices dalamudServices, MirrorServices mirrorServices, RendererHook rendererHook) : base(dalamudServices, mirrorServices) 
     {
         RendererHook   = rendererHook;
-
-        cameraSettings = new CameraSettings();
 
         RendererHook.RegisterRenderPassListener(OnRenderPass);
     }
@@ -41,10 +50,43 @@ internal unsafe class CameraHooks : HookableElement
     {
         CameraManager_GetActiveCameraHook?.Enable();
         Camera_CtorHook?.Enable();
+
+        try
+        {
+            EngineCoreSingleton = EngineCoreSingletonDetour();
+        }
+        catch(Exception e)
+        {
+            MirrorServices.MirrorLog.LogException(e);
+        }
+    }
+
+    private nint EngineCoreSingletonDetour()
+    {
+        return GetEngineCoreSingletonHook!.Original();
+    }
+
+    public unsafe Matrix ReadMatrix(IntPtr address)
+    {
+        float* p = (float*)address;
+
+        Matrix matrix = new Matrix();
+
+        for (int index = 0; index < 16; index++)
+        {
+            matrix[index] = *p++;
+        }
+
+        return matrix;
     }
 
     private void OnRenderPass(RenderPass renderPass)
     {
+        if (EngineCoreSingleton == nint.Zero)
+        {
+            return;
+        }
+
         if (renderPass == RenderPass.Post)
         {
             return;
@@ -69,7 +111,30 @@ internal unsafe class CameraHooks : HookableElement
             return;
         }
 
-        cameraSettings = new CameraSettings(renderCamera);
+        try
+        {
+            ViewProjMatrix      = ReadMatrix(EngineCoreSingleton + 0x1B4);
+            ProjectionMatrix    = ReadMatrix(EngineCoreSingleton + 0x174);
+            ViewMatrix          = ReadMatrix(EngineCoreSingleton + 0x134);
+
+            MirrorServices.MirrorLog.LogVerbose("Standard Z: " + renderCamera->FiniteFarPlane);
+        }
+        catch (Exception e)
+        {
+            MirrorServices.MirrorLog.LogException(e);
+        }
+    }
+    
+    public Matrix GetMatrix()
+    {
+        Matrix worldMatrix = Matrix.Identity;
+
+        Matrix viewProjMatrix = ViewProjMatrix;
+        viewProjMatrix.Transpose();
+
+        Matrix wvp          = worldMatrix * viewProjMatrix;
+
+        return wvp;
     }
 
     public GameAllocation<Camera> SpawnCamera(Camera* clone = null)
@@ -91,9 +156,6 @@ internal unsafe class CameraHooks : HookableElement
         OverrideCamera = overrideCamera;
     }
 
-    public CameraSettings GetCameraSettings()
-        => cameraSettings;
-
     private Camera* CameraManager_GetActiveCameraDetour(CameraManager* cameraManager)
     {
         if (OverrideCamera != null)
@@ -114,6 +176,8 @@ internal unsafe class CameraHooks : HookableElement
     public override void OnDispose()
     {
         RendererHook.DeregisterRenderPassListener(OnRenderPass);
+
+        GetEngineCoreSingletonHook?.Dispose();
 
         CameraManager_GetActiveCameraHook?.Dispose();
         Camera_CtorHook?.Dispose();

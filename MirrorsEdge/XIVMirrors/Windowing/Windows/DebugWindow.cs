@@ -15,9 +15,9 @@ internal unsafe class DebugWindow : MirrorWindow
 {
     private bool _disposed = false;
 
-    protected override System.Numerics.Vector2 MinSize      { get; } = new System.Numerics.Vector2(350, 136);
-    protected override System.Numerics.Vector2 MaxSize      { get; } = new System.Numerics.Vector2(2000, 2000);
-    protected override System.Numerics.Vector2 DefaultSize  { get; } = new System.Numerics.Vector2(800, 400);
+    protected override Vector2 MinSize      { get; } = new Vector2(350, 136);
+    protected override Vector2 MaxSize      { get; } = new Vector2(2000, 2000);
+    protected override Vector2 DefaultSize  { get; } = new Vector2(800, 400);
 
     private readonly CameraHandler  CameraHandler;
     private readonly RendererHook   RendererHook;
@@ -27,7 +27,6 @@ internal unsafe class DebugWindow : MirrorWindow
     private readonly BackBufferHook BackBufferHook;
     private readonly CubeRenderHook CubeRenderHook;
 
-    private bool cameraHasChanged = false;
 
     public DebugWindow(WindowHandler windowHandler, DalamudServices dalamudServices, MirrorServices mirrorServices, CameraHandler cameraHandler, RendererHook rendererHook, ScreenHook screenHook, ShaderHandler shaderFactory, DirectXData directXData, BackBufferHook backBufferHook, CubeRenderHook cubeRenderHook) : base(windowHandler, dalamudServices, mirrorServices, "Mirrors Dev Window", ImGuiWindowFlags.None)
     {
@@ -66,11 +65,9 @@ internal unsafe class DebugWindow : MirrorWindow
         ImGui.Image(mappedTexture.Handle, new System.Numerics.Vector2(500, 500));
     }
 
-    int ticker = 0;
-
     private void DrawBackBuffer()
     {
-        Vector2 size = ImGui.GetContentRegionAvail();
+        Vector2 size = new Vector2(1920, 1080);
 
         if (CubeRenderHook.OutputView != null)
         {
@@ -86,29 +83,49 @@ internal unsafe class DebugWindow : MirrorWindow
 
         ImGui.NewLine();
 
-        ticker = 0;
 
-        if (ImGui.BeginListBox("##listy", new System.Numerics.Vector2(ImGui.GetContentRegionAvail().X, 500)))
+
+        if (BackBufferHook.BackBufferNoUIBase != null)
         {
-
-            foreach (MappedTexture texture in RendererHook.MappedTextures)
-            {
-                ImGui.Image(texture.Handle, new System.Numerics.Vector2(200, 160));
-
-                ticker++;
-
-                if (ticker >= 5)
-                {
-                    ticker = 0;
-                }
-                else
-                {
-                    ImGui.SameLine();
-                }
-            }
-
-            ImGui.EndListBox();
+            ImGui.Image(BackBufferHook.BackBufferNoUIBase.Handle, new Vector2(500, 500));
         }
+
+        ImGui.SameLine();
+
+        if (BackBufferHook.BackBufferWithUIBase != null)
+        {
+            ImGui.Image(BackBufferHook.BackBufferWithUIBase.Handle, new Vector2(500, 500));
+        }
+
+        ImGui.NewLine();
+
+
+
+
+        if (BackBufferHook.NonTransparentDepthBufferBase != null)
+        {
+            ImGui.Image(BackBufferHook.NonTransparentDepthBufferBase.Handle, new Vector2(500, 500));
+        }
+
+        ImGui.SameLine();
+
+        if (BackBufferHook.TransparentDepthBufferBase != null)
+        {
+            ImGui.Image(BackBufferHook.TransparentDepthBufferBase.Handle, new Vector2(500, 500));
+        }
+
+        ImGui.NewLine();
+
+
+        if (BackBufferHook.SecondDalamudBackBufferBase != null)
+        {
+            ImGui.Image(BackBufferHook.SecondDalamudBackBufferBase.Handle, new Vector2(500, 500));
+        }
+
+        ImGui.NewLine();
+
+
+
 
         if (BackBufferHook.DalamudBackBuffer != null)
         {
@@ -157,14 +174,14 @@ internal unsafe class DebugWindow : MirrorWindow
             {
                 CameraHandler.SetActiveCamera(camera);
 
-                DalamudServices.Framework.RunOnTick(() => cameraHasChanged = true, delayTicks: 2);
+                //DalamudServices.Framework.RunOnTick(() => cameraHasChanged = true, delayTicks: 2);
             }
 
             ImGui.SameLine();
 
             if (ImGui.Button($"X##{WindowHandler.InternalCounter}"))
             {
-                _ = DalamudServices.Framework.RunOnFrameworkThread(() => CameraHandler.DestroyCamera(camera));
+                //_ = DalamudServices.Framework.RunOnFrameworkThread(() => CameraHandler.DestroyCamera(camera));
             }
 
             camCounter++;

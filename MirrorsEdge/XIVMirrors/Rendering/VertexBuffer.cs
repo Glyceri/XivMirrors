@@ -1,3 +1,4 @@
+using SharpDX;
 using SharpDX.Direct3D11;
 using System;
 using DirextXBuffer = SharpDX.Direct3D11.Buffer;
@@ -12,7 +13,7 @@ internal unsafe class VertexBuffer : IDisposable
     public VertexBuffer(ref Vertex[] vertices, ref DirextXBuffer buffer)
     {
         Vertices    = vertices;
-        Buffer      = new VertexBufferBinding(buffer, 0, sizeof(Vertex));
+        Buffer      = new VertexBufferBinding(buffer, Utilities.SizeOf<Vertex>(), 0);
     }
 
     public int VertexCount 

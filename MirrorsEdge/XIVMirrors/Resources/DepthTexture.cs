@@ -16,7 +16,7 @@ internal unsafe class DepthTexture : BasicTexture
     {
         Texture2DDescription texture2DDescription = new Texture2DDescription()
         {
-            Format              = Format.R24G8_Typeless,
+            Format              = Format.D24_UNorm_S8_UInt,
             MipLevels           = 1,
             ArraySize           = 1,
             SampleDescription   = new SampleDescription(1, 0),

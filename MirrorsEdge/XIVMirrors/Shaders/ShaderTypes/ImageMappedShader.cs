@@ -11,14 +11,14 @@ namespace MirrorsEdge.XIVMirrors.shaders.ShaderTypes;
 
 internal class ImageMappedShader : Shader
 {
-    public ImageMappedShader(DirectXData data, MirrorServices mirrorServices, ShaderFactory factory, string vertexFile, string fragmentFile, InputElement[] inputElements) : base(data, mirrorServices, factory, vertexFile, fragmentFile, inputElements)
+    public ImageMappedShader(DirectXData data, MirrorServices mirrorServices, ShaderFactory factory, string fragmentFile) : base(data, mirrorServices, factory, "ImageMapperVertexShader.hlsl", fragmentFile, [new("POSITION", 0, SharpDX.DXGI.Format.R32G32B32_Float, 0, 0), new("TEXCOORD", 0, SharpDX.DXGI.Format.R32G32_Float, InputElement.AppendAligned, 0)])
     {
 
     }
 
-    public void Bind(MappedTexture mappedTexture, RenderTarget renderTarget, int slot = 0, bool clearTarget = true)
+    public void Bind(MappedTexture mappedTexture, RenderTarget renderTarget)
     {
-        Bind(slot);
+        Bind(0);
 
         Viewport viewport = new Viewport(0, 0, (int)mappedTexture.Width, (int)mappedTexture.Height);
 
@@ -26,15 +26,12 @@ internal class ImageMappedShader : Shader
 
         mappedTexture.UpdateConstantBuffer(DirectXData);
 
-        DirectXData.Context.VertexShader.SetConstantBuffer(slot, mappedTexture.ConstantBuffer);
-        DirectXData.Context.PixelShader.SetShaderResource(slot, mappedTexture.ShaderResourceView);
+        DirectXData.Context.VertexShader.SetConstantBuffer(0, mappedTexture.ConstantBuffer);
+        DirectXData.Context.PixelShader.SetShaderResource(0, mappedTexture.ShaderResourceView);
 
         DirectXData.Context.OutputMerger.SetRenderTargets(renderTarget.RenderTargetView);
 
-        if (clearTarget)
-        {
-            DirectXData.Context.ClearRenderTargetView(renderTarget.RenderTargetView, new RawColor4(1, 0, 1, 1));
-        }
+        DirectXData.Context.ClearRenderTargetView(renderTarget.RenderTargetView, new RawColor4(1, 0, 1, 1));
 
         DirectXData.Context.InputAssembler.PrimitiveTopology = PrimitiveTopology.TriangleList;
     }

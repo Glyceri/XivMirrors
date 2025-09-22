@@ -12,14 +12,22 @@ struct PSInput
 
 cbuffer TransformBuffer : register(b0)
 {
-    matrix WorldViewProjection; // world * view * projection
+    matrix ModelMatrix;
+    matrix ViewMatrix;
+    matrix ProjectionMatrix;
+    matrix ViewProjMatrix;
+    matrix InvViewMatrix;
+    matrix InvProjectionMatrix;
+    float  NearPlane;
+    float  FarPlane;
+    float2 PADDING;
 };
 
 PSInput VSMain(VSInput input)
 {
     PSInput output;
     
-    output.Position = mul(float4(input.Position, 1.0f), WorldViewProjection);
+    output.Position = mul(float4(input.Position, 1.0f), ViewProjMatrix);
     output.TexCoord = input.TexCoord;
     
     return output;

@@ -1,8 +1,8 @@
-using Dalamud.Interface.Textures;
 using Dalamud.Interface.Textures.TextureWraps;
 using MirrorsEdge.XIVMirrors.Hooking.Enum;
 using MirrorsEdge.XIVMirrors.Memory;
 using MirrorsEdge.XIVMirrors.Rendering;
+using MirrorsEdge.XIVMirrors.Rendering.Structs;
 using MirrorsEdge.XIVMirrors.Resources;
 using MirrorsEdge.XIVMirrors.Services;
 using MirrorsEdge.XIVMirrors.Shaders;
@@ -21,13 +21,14 @@ internal class CubeRenderHook : HookableElement
     private readonly CameraHooks    CameraHook;
     private readonly ScreenHook     ScreenHook;
     private readonly ShaderHandler  ShaderHandler;
+    private readonly BackBufferHook BackBufferHook;
 
     private Texture2D?      backer;
     private DepthTexture?   depthTexture;
     private RenderTarget?   renderTarget;
 
     private readonly BasicModel   CubeModel;
-    private readonly MatrixBuffer MatrixBuffer;
+    private readonly CameraBuffer CameraBuffer;
 
     private readonly IDalamudTextureWrap TextureWrap;
     private readonly ShaderResourceView  TextureResourceView;
@@ -38,19 +39,44 @@ internal class CubeRenderHook : HookableElement
     private readonly RasterizerState   RasterizerState;
     private readonly DepthStencilState DepthStencilState;
 
+    private MappedTexture? backBufferWithUICopy;
+    private MappedTexture? backBufferNoUICopy;
+    private MappedTexture? nonTransparentDepthBufferCopy;
+    private MappedTexture? transparentDepthBufferCopy;
+    private MappedTexture? cubeTextureCopy;
+    private MappedTexture? depthTextureCopy;
+
+    private RenderTarget?  finalRenderTarget;
+
     public ShaderResourceView? OutputView
         => renderTarget?.ShaderResourceView;
 
     public ShaderResourceView? DepthView
         => depthTexture?.ShaderResourceView;
 
-    public CubeRenderHook(DalamudServices dalamudServices, MirrorServices mirrorServices, DirectXData directXData, RendererHook renderHook, CameraHooks cameraHook, ScreenHook screenHook, ShaderHandler shaderHandler) : base(dalamudServices, mirrorServices)
+    public MappedTexture? BackBufferWithUICopy
+        => backBufferWithUICopy;
+
+    public MappedTexture? BackBufferNoUICopy
+        => backBufferNoUICopy;
+
+    public MappedTexture? NonTransparentDepthBufferCopy
+        => nonTransparentDepthBufferCopy;
+
+    public MappedTexture? TransparentDepthBufferCopy
+        => transparentDepthBufferCopy;
+
+    public RenderTarget? FinalRenderTarget
+        => finalRenderTarget;
+
+    public CubeRenderHook(DalamudServices dalamudServices, MirrorServices mirrorServices, DirectXData directXData, RendererHook renderHook, CameraHooks cameraHook, ScreenHook screenHook, BackBufferHook backBufferHook, ShaderHandler shaderHandler) : base(dalamudServices, mirrorServices)
     {
         DirectXData     = directXData;
         RendererHook    = renderHook;
         CameraHook      = cameraHook;
         ScreenHook      = screenHook;
         ShaderHandler   = shaderHandler;
+        BackBufferHook  = backBufferHook;
 
         RendererHook.RegisterRenderPassListener(OnRenderPass);
         ScreenHook.RegisterScreenSizeChangeCallback(OnScreenSizeChanged);
@@ -58,7 +84,7 @@ internal class CubeRenderHook : HookableElement
         PrimitiveDeclaration cube = PrimitiveFactory.Cube();
 
         CubeModel       = new BasicModel(DirectXData, ref cube);
-        MatrixBuffer    = new MatrixBuffer(DirectXData);
+        CameraBuffer    = new CameraBuffer(DirectXData);
 
         TextureWrap     = DalamudServices.TextureProvider.GetFromFileAbsolute("C:\\Users\\Amber\\PetRenamer\\MirrorsEdge\\MirrorsEdge\\XIVMirrors\\shaders\\files\\nightsky.png").RentAsync().Result;
         TextureResourceView = new ShaderResourceView((nint)TextureWrap.Handle.Handle);
@@ -76,7 +102,7 @@ internal class CubeRenderHook : HookableElement
         {
             IsDepthEnabled  = true,
             DepthWriteMask  = DepthWriteMask.All,
-            DepthComparison = Comparison.GreaterEqual
+            DepthComparison = Comparison.Greater
         };
 
         DepthStencilState = new DepthStencilState(DirectXData.Device, dsDesc);
@@ -119,11 +145,11 @@ internal class CubeRenderHook : HookableElement
         // END BIND
 
         // BIND MATRIX
-        Matrix cameraMatrix = CameraHook.GetMatrix();
+        CameraBufferLayout cameraMatrix = CameraHook.GetCameraBufferLayout(Matrix.Identity);
 
-        MatrixBuffer.UpdateBuffer(ref cameraMatrix);
+        CameraBuffer.UpdateBuffer(ref cameraMatrix);
 
-        MatrixBuffer.Bind();
+        CameraBuffer.Bind();
         // END BIND
 
         DirectXData.Context.ClearRenderTargetView(renderTarget.RenderTargetView, new RawColor4(0, 0, 0, 0));
@@ -149,7 +175,83 @@ internal class CubeRenderHook : HookableElement
         DirectXData.Context.Rasterizer.State = null;
         DirectXData.Context.OutputMerger.DepthStencilState = null;
         DirectXData.Context.OutputMerger.SetBlendState(null);
+
+
+
+
+        backBufferWithUICopy?.Dispose();
+        backBufferNoUICopy?.Dispose();
+        nonTransparentDepthBufferCopy?.Dispose();
+        transparentDepthBufferCopy?.Dispose();
+        cubeTextureCopy?.Dispose();
+        depthTextureCopy?.Dispose();
+
+        finalRenderTarget?.Dispose();
+
+        backBufferWithUICopy            = BackBufferHook?.BackBufferWithUI?.ToMappedTexture(DirectXData);
+        backBufferNoUICopy              = BackBufferHook?.BackBufferNoUI?.ToMappedTexture(DirectXData);
+        nonTransparentDepthBufferCopy   = BackBufferHook?.DepthBufferNoTransparency?.ToMappedTexture(DirectXData);
+        transparentDepthBufferCopy      = BackBufferHook?.DepthBufferWithTransparency?.ToMappedTexture(DirectXData);
+        cubeTextureCopy                 = renderTarget?.ToMappedTexture(DirectXData);
+        depthTextureCopy                = depthTexture?.ToMappedTexture(DirectXData);
+
+        finalRenderTarget               = backBufferWithUICopy?.CreateRenderTarget(DirectXData);
+
+        FinalShader();
     }
+
+
+    private void FinalShader()
+    {
+        if (backBufferWithUICopy == null)
+        {
+            return;
+        }
+
+        if (backBufferNoUICopy == null)
+        {
+            return;
+        }
+
+        if (nonTransparentDepthBufferCopy == null)
+        {
+            return;
+        }
+
+        if (transparentDepthBufferCopy == null)
+        {
+            return;
+        }
+
+        if (cubeTextureCopy == null)
+        {
+            return;
+        }
+
+        if (depthTextureCopy == null)
+        {
+            return;
+        }
+
+        if (finalRenderTarget == null)
+        {
+            return;
+        }
+
+        ShaderHandler.MirrorShader.Bind(nonTransparentDepthBufferCopy, transparentDepthBufferCopy, backBufferNoUICopy, backBufferWithUICopy, cubeTextureCopy, depthTextureCopy, finalRenderTarget);
+
+        BlendStateDescription blendDesc = new BlendStateDescription();
+
+        blendDesc.RenderTarget[0].IsBlendEnabled = false;
+        blendDesc.RenderTarget[0].RenderTargetWriteMask = ColorWriteMaskFlags.All;
+
+        DirectXData.Context.OutputMerger.SetBlendState(new BlendState(DirectXData.Device, blendDesc));
+
+        ShaderHandler.MirrorShader.Draw();
+
+        ShaderHandler.MirrorShader.UnbindTexture();
+    }
+
 
     private void OnScreenSizeChanged(uint newWidth, uint newHeight)
     {
@@ -183,6 +285,15 @@ internal class CubeRenderHook : HookableElement
 
     public override void OnDispose()
     {
+        backBufferWithUICopy?.Dispose();
+        backBufferNoUICopy?.Dispose();
+        nonTransparentDepthBufferCopy?.Dispose();
+        transparentDepthBufferCopy?.Dispose();
+        cubeTextureCopy?.Dispose();
+        depthTextureCopy?.Dispose();
+
+        finalRenderTarget?.Dispose();
+
         DepthStencilState?.Dispose();
         RasterizerState?.Dispose();
 
@@ -192,7 +303,7 @@ internal class CubeRenderHook : HookableElement
         backer?.Dispose();
         renderTarget?.Dispose();
         CubeModel?.Dispose();
-        MatrixBuffer?.Dispose();
+        CameraBuffer?.Dispose();
 
         ScreenHook.DeregisterScreenSizeChangeCallback(OnScreenSizeChanged);
         RendererHook.DeregisterRenderPassListener(OnRenderPass);

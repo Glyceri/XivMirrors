@@ -69,6 +69,11 @@ internal unsafe class DebugWindow : MirrorWindow
     {
         Vector2 size = new Vector2(1920, 1080);
 
+        if (CubeRenderHook.FinalRenderTarget != null)
+        {
+            ImGui.Image(CubeRenderHook.FinalRenderTarget.Handle, size);
+        }
+
         if (CubeRenderHook.OutputView != null)
         {
             ImGui.Image(new ImTextureID(CubeRenderHook.OutputView.NativePointer), size * 0.5f);

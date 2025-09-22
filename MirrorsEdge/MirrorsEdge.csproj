@@ -21,19 +21,15 @@
 
   <ItemGroup>
       <EmbeddedResource Include="XIVMirrors\shaders\files\ShadedVertexShader.hlsl" LogicalName="ShadedVertexShader.hlsl" />
-      <EmbeddedResource Include="XIVMirrors\shaders\files\MirrorVertexShader.hlsl" LogicalName="MirrorVertexShader.hlsl" />
       <EmbeddedResource Include="XIVMirrors\shaders\files\ImageMapperVertexShader.hlsl" LogicalName="ImageMapperVertexShader.hlsl" />
 
       <EmbeddedResource Include="XIVMirrors\shaders\files\AlphaFragmentShader.hlsl" LogicalName="AlphaFragmentShader.hlsl" />
       <EmbeddedResource Include="XIVMirrors\shaders\files\ClippedFragmentShader.hlsl" LogicalName="ClippedFragmentShader.hlsl" />
       <EmbeddedResource Include="XIVMirrors\shaders\files\MirrorFragmentShader.hlsl" LogicalName="MirrorFragmentShader.hlsl" />
       <EmbeddedResource Include="XIVMirrors\shaders\files\ShadedFragmentShader.hlsl" LogicalName="ShadedFragmentShader.hlsl" />
+      <EmbeddedResource Include="xivmirrors\shaders\files\InvertAlphaFragmentShader.hlsl" LogicalName="InvertAlphaFragmentShader.hlsl" />
    
       <EmbeddedResource Include="XIVMirrors\shaders\files\nightsky.png" LogicalName="NightSky.png" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <Folder Include="XIVMirrors\shaders\ShaderTypes\" />
   </ItemGroup>
 
   <ItemGroup>

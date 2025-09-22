@@ -22,7 +22,7 @@ internal unsafe class RenderTarget : BasicTexture
             Height              = reference.Description.Height,
             MipLevels           = 1,
             ArraySize           = 1,
-            Format              = Format.R8G8B8A8_UNorm,
+            Format              = Format.R16G16B16A16_UNorm,
             SampleDescription   = new SharpDX.DXGI.SampleDescription(1, 0),
             Usage               = ResourceUsage.Default,
             BindFlags           = BindFlags.RenderTarget | BindFlags.ShaderResource,
@@ -35,7 +35,7 @@ internal unsafe class RenderTarget : BasicTexture
         ShaderResourceViewDescription srvDesc = new ShaderResourceViewDescription()
         {
             Dimension   = ShaderResourceViewDimension.Texture2D,
-            Format      = Format.R8G8B8A8_UNorm,
+            Format      = Format.R16G16B16A16_UNorm,
             Texture2D   = new ShaderResourceViewDescription.Texture2DResource()
             {
                 MipLevels       = 1,
@@ -65,6 +65,31 @@ internal unsafe class RenderTarget : BasicTexture
 
     public override ScaledResolution ScaledResolution
         => new ScaledResolution((int)Width, (int)Height, (int)ActualWidth, (int)ActualHeight);
+
+    public MappedTexture ToMappedTexture(DirectXData directXData)
+    {
+        Texture2DDescription baseDescription = Texture.Description;
+
+        Texture2DDescription newDescription = new Texture2DDescription()
+        { 
+            Width               = baseDescription.Width,
+            Height              = baseDescription.Height,
+            MipLevels           = 1,
+            ArraySize           = 1,
+            Format              = Format.R8G8B8A8_UNorm,
+            SampleDescription   = new SampleDescription(1, 0),
+            Usage               = ResourceUsage.Default,
+            BindFlags           = BindFlags.RenderTarget | BindFlags.ShaderResource,
+            CpuAccessFlags      = CpuAccessFlags.None,
+            OptionFlags         = ResourceOptionFlags.None
+        };
+
+        Texture2D newTexture = new Texture2D(directXData.Device, newDescription);
+
+        directXData.Context.CopyResource(Texture, newTexture);
+
+        return new MappedTexture(directXData, ref newTexture);
+    }
 
     public override void Dispose()
     {

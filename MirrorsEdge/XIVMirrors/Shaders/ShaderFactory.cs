@@ -23,6 +23,8 @@ internal class ShaderFactory
         AddressW            = TextureAddressMode.Clamp,
         ComparisonFunction  = Comparison.Never,
         BorderColor         = new Color4(0, 0, 0, 0),
+        MipLodBias          = 0.0f,
+        MaximumAnisotropy   = 1,
         MinimumLod          = 0,
         MaximumLod          = float.MaxValue
     };

@@ -16,7 +16,7 @@ internal unsafe class DepthTexture : BasicTexture
     {
         Texture2DDescription texture2DDescription = new Texture2DDescription()
         {
-            Format              = Format.D24_UNorm_S8_UInt,
+            Format              = Format.R24_UNorm_X8_Typeless,
             MipLevels           = 1,
             ArraySize           = 1,
             SampleDescription   = new SampleDescription(1, 0),
@@ -99,6 +99,28 @@ internal unsafe class DepthTexture : BasicTexture
 
     public override ScaledResolution ScaledResolution
         => new ScaledResolution((int)Width, (int)Height, (int)ActualWidth, (int)ActualHeight);
+
+    public MappedTexture ToMappedTexture(DirectXData directXData)
+    {
+        Texture2DDescription baseDescription = Texture.Description;
+
+        Texture2DDescription newDescription = new Texture2DDescription()
+        { 
+            Format              = Format.D32_Float,
+            MipLevels           = 1,
+            ArraySize           = 1,
+            SampleDescription   = new SampleDescription(1, 0),
+            BindFlags           = BindFlags.ShaderResource | BindFlags.DepthStencil,
+            Height              = (int)baseDescription.Height,
+            Width               = (int)baseDescription.Width,
+        };
+
+        Texture2D newTexture = new Texture2D(directXData.Device, newDescription);
+
+        directXData.Context.CopyResource(Texture, newTexture);
+
+        return new MappedTexture(directXData, ref newTexture);
+    }
 
     public override void Dispose()
     {

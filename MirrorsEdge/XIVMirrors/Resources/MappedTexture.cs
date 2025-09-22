@@ -88,6 +88,11 @@ internal unsafe class MappedTexture : BasicTexture
     public bool IsValid =>
         GetValidStatus();
 
+    public RenderTarget CreateRenderTarget(DirectXData data)
+    {
+        return new RenderTarget(data, Texture);
+    }
+
     private uint GetActualWidth()
     {
         if (isNative)

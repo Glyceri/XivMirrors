@@ -15,7 +15,8 @@ internal class ShaderHandler : IDisposable
 
     public readonly  ImageMappedShader  AlphaShader;
     public readonly  ImageMappedShader  ClippedShader;
-    public readonly  Shader             MirrorShader;
+    public readonly  ImageMappedShader  InvertAlphaShader;
+    public readonly  MirrorShader       MirrorShader;
     public readonly  Shader             ShadedModelShader;
 
     public readonly ShaderFactory Factory;
@@ -28,9 +29,10 @@ internal class ShaderHandler : IDisposable
 
         Factory             = new ShaderFactory(MirrorServices, ResourceLoader, DirectXData);
 
-        AlphaShader         = new ImageMappedShader(DirectXData, MirrorServices, Factory, "ImageMapperVertexShader.hlsl",  "AlphaFragmentShader.hlsl",     [new("POSITION", 0, SharpDX.DXGI.Format.R32G32B32_Float, 0, 0), new("TEXCOORD", 0, SharpDX.DXGI.Format.R32G32_Float, InputElement.AppendAligned, 0)]);
-        ClippedShader       = new ImageMappedShader(DirectXData, MirrorServices, Factory, "ImageMapperVertexShader.hlsl",  "ClippedFragmentShader.hlsl",   [new("POSITION", 0, SharpDX.DXGI.Format.R32G32B32_Float, 0, 0), new("TEXCOORD", 0, SharpDX.DXGI.Format.R32G32_Float, InputElement.AppendAligned, 0)]);
-        MirrorShader        = new Shader(DirectXData, MirrorServices, Factory, "MirrorVertexShader.hlsl",       "MirrorFragmentShader.hlsl",    []);
+        AlphaShader         = new ImageMappedShader(DirectXData, MirrorServices, Factory, "AlphaFragmentShader.hlsl");
+        ClippedShader       = new ImageMappedShader(DirectXData, MirrorServices, Factory, "ClippedFragmentShader.hlsl");
+        InvertAlphaShader   = new ImageMappedShader(DirectXData, MirrorServices, Factory, "InvertAlphaFragmentShader.hlsl");
+        MirrorShader        = new MirrorShader     (DirectXData, MirrorServices, Factory, "MirrorFragmentShader.hlsl");
         ShadedModelShader   = new Shader(DirectXData, MirrorServices, Factory, "ShadedVertexShader.hlsl",       "ShadedFragmentShader.hlsl",    [new("POSITION", 0, SharpDX.DXGI.Format.R32G32B32_Float, 0, 0), new("TEXCOORD", 0, SharpDX.DXGI.Format.R32G32_Float, InputElement.AppendAligned, 0)]);
     }
 
@@ -38,6 +40,8 @@ internal class ShaderHandler : IDisposable
     {
         AlphaShader?.Dispose();
         ClippedShader?.Dispose();
+        InvertAlphaShader?.Dispose();
         MirrorShader?.Dispose();
+        ShadedModelShader?.Dispose();
     }
 }

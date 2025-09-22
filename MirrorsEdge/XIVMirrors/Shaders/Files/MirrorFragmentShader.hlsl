@@ -4,44 +4,45 @@ struct MirrorShaderOutput
     float2 texcoord : TEXCOORD;
 };
 
-//struct ScaledResolution
-//{
-//    uint AssignedWidth;
-//    uint AssignedHeight;
-//    uint ActualWidth;
-//    uint ActualHeight;
-//};
+Texture2D<float> depthTextureNoTransparency   : register(t0);
+Texture2D<float> depthTextureWithTransparency : register(t1);
+Texture2D        backBufferNoUI               : register(t2);
+Texture2D        backBufferWithUI             : register(t3);
+Texture2D        modelMap                     : register(t4);
+Texture2D<float> modelDepthMap                : register(t5);
 
-//cbuffer ResolutionBuffer : register(b0)
-//{
-//    ScaledResolution scaledResolution;
-//};
+SamplerState     textureSampler               : register(s0);
 
-Texture2D       flatTexture     : register(t0);
-Texture2D       nightTexture    : register(t1);
-SamplerState    textureSampler  : register(s0);
-SamplerState    nightSampler    : register(s1);
+float LinearizeDepth(float z)
+{
+    return (2.0f * 0.1f) / (1000.0 + 0.1f - z * (1000.0 - 0.1f));
+}
 
+float Random(float2 uv)
+{
+    return frac(sin(dot(uv, float2(12.9898, 78.233))) * 43758.5453);
+}
 
 float4 PSMain(MirrorShaderOutput mirrorShaderOutput) : SV_Target
 {
-    //float scalerWidth   = (float) scaledResolution.ActualWidth  / (float) scaledResolution.AssignedWidth;
-    //float scalerHeight  = (float) scaledResolution.ActualHeight / (float) scaledResolution.AssignedHeight;
+    float2 texCoord = mirrorShaderOutput.texcoord;
+
+    float depthNoTransparency       = depthTextureNoTransparency.Sample(textureSampler, texCoord);
+    float depthTransparency         = depthTextureWithTransparency.Sample(textureSampler, texCoord);
+    float depthModel                = modelDepthMap.Sample(textureSampler, texCoord);
     
-    //float2 scaler = float2(scalerWidth, scalerHeight);
+    float4 backBufferNoUIColour     = backBufferNoUI.Sample(textureSampler, texCoord);
+    float4 backBufferWithUIColour   = backBufferWithUI.Sample(textureSampler, texCoord);
+    float4 modelMapColour           = modelMap.Sample(textureSampler, texCoord);
+
+    float4 finalColour = backBufferNoUIColour;
     
-    float2 textureCoordinate = mirrorShaderOutput.texcoord;// * scaler;
-    
-    float4 backBufferColour  = flatTexture.Sample(textureSampler, textureCoordinate);
-    float4 nightSkyColour    = nightTexture.Sample(nightSampler, textureCoordinate);
-    
-    if (nightSkyColour.r <0.05)
+    if (depthModel > depthNoTransparency)
     {
-        discard;
-        //backBufferColour.rgb = float3(0, 1, 0);
+        finalColour = modelMapColour;
     }
     
-    nightSkyColour.a = 1.0; // YUPP c:
-   
-    return nightSkyColour;
+    finalColour.a = 1;
+    
+    return finalColour;
 }

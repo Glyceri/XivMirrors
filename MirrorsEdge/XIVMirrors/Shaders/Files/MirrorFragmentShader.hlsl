@@ -35,7 +35,7 @@ float4 PSMain(MirrorShaderOutput mirrorShaderOutput) : SV_Target
     float4 backBufferWithUIColour   = backBufferWithUI.Sample(textureSampler, texCoord);
     float4 modelMapColour           = modelMap.Sample(textureSampler, texCoord);
 
-    float4 finalColour = backBufferNoUIColour;
+    float4 finalColour = backBufferWithUIColour;
     
     if (depthModel > depthNoTransparency)
     {
@@ -45,7 +45,7 @@ float4 PSMain(MirrorShaderOutput mirrorShaderOutput) : SV_Target
         {
             float4 srcColor = finalColour;
             float alpha     = dot(srcColor.rgb, float3(0.299, 0.587, 0.114)); // luminance as alpha
-            float4 dstColor = backBufferNoUIColour;
+            float4 dstColor = finalColour;
             
             finalColour = dstColor;
         }

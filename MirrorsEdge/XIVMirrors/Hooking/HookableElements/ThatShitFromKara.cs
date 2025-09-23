@@ -398,7 +398,7 @@ internal unsafe class ThatShitFromKara : HookableElement
         PrimitiveServerLoadResourceDetour(thisPtr);
     }
 
-    public override void OnDispose()
+    protected override void OnDispose()
     {
         DalamudServices.DalamudPlugin.UiBuilder.Draw -= Draw;
 

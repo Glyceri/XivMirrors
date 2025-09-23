@@ -6,10 +6,9 @@ struct MirrorShaderOutput
 
 Texture2D<float> depthTextureNoTransparency   : register(t0);
 Texture2D<float> depthTextureWithTransparency : register(t1);
-Texture2D        backBufferNoUI               : register(t2);
-Texture2D        backBufferWithUI             : register(t3);
-Texture2D        modelMap                     : register(t4);
-Texture2D<float> modelDepthMap                : register(t5);
+Texture2D        backBuffer                   : register(t2);
+Texture2D        modelMap                     : register(t3);
+Texture2D<float> modelDepthMap                : register(t4);
 
 SamplerState     textureSampler               : register(s0);
 
@@ -31,25 +30,28 @@ float4 PSMain(MirrorShaderOutput mirrorShaderOutput) : SV_Target
     float depthTransparency         = depthTextureWithTransparency.Sample(textureSampler, texCoord);
     float depthModel                = modelDepthMap.Sample(textureSampler, texCoord);
     
-    float4 backBufferNoUIColour     = backBufferNoUI.Sample(textureSampler, texCoord);
-    float4 backBufferWithUIColour   = backBufferWithUI.Sample(textureSampler, texCoord);
+    float4 backBufferColour         = backBuffer.Sample(textureSampler, texCoord);
     float4 modelMapColour           = modelMap.Sample(textureSampler, texCoord);
 
-    float4 finalColour = backBufferWithUIColour;
+    float4 finalColour              = backBufferColour;
+    
+    // white means object should be fully visible
+    float uiOcclusion               = saturate(1.0f - (backBufferColour.a * 1.25f));
+    
+    if (uiOcclusion < 0.3f)
+    {
+        return finalColour;
+    }
     
     if (depthModel > depthNoTransparency)
     {
         finalColour = modelMapColour;
-        
-        if (depthTransparency > depthModel)
-        {
-            float4 srcColor = finalColour;
-            float alpha     = dot(srcColor.rgb, float3(0.299, 0.587, 0.114)); // luminance as alpha
-            float4 dstColor = finalColour;
-            
-            finalColour = dstColor;
-        }
     }    
+    
+    if (depthTransparency > depthModel)
+    {
+        finalColour = finalColour;
+    }
 
     finalColour.a = 1;
     

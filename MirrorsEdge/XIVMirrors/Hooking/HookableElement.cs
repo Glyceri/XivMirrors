@@ -23,11 +23,9 @@ internal abstract class HookableElement : IHookableElement
     protected nint GetVTableAddress(nint vtable, uint index)
         => Marshal.ReadIntPtr(vtable, (int)index * nint.Size);
 
-    public abstract void Init();
-    public abstract void OnDispose();
+    public    abstract void Init();
+    protected abstract void OnDispose();
 
     public void Dispose()
-    {
-        OnDispose();
-    }
+        => OnDispose();
 }

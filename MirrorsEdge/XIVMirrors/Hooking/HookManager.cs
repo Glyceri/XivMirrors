@@ -19,12 +19,13 @@ internal class HookManager : IDisposable
 
     private readonly List<IHookableElement> _hookableElements = new List<IHookableElement>();
 
-    public readonly CameraHooks         CameraHooks;
-    public readonly RendererHook        RendererHook;
-    public readonly ScreenHook          ScreenHook;
-    public readonly BackBufferHook      BackBufferHook;
-    public readonly CubeRenderHook      CubeRenderHook;
-    public readonly ResourceHooks       ResourceHooks;
+    public readonly CameraHooks                 CameraHooks;
+    public readonly RendererHook                RendererHook;
+    public readonly ScreenHook                  ScreenHook;
+    public readonly BackBufferHook              BackBufferHook;
+    public readonly CubeRenderHook              CubeRenderHook;
+    public readonly ResourceHooks               ResourceHooks;
+    public readonly TransparentBackBufferHook   TransparentBackBufferHook;
 
     public HookManager(DalamudServices dalamudServices, MirrorServices mirrorServices, DirectXData directXData, ShaderHandler shaderHandler, ResourceHandler resourceHandler)
     {
@@ -34,12 +35,13 @@ internal class HookManager : IDisposable
         ShaderHandler   = shaderHandler;
         ResourceHandler = resourceHandler;
 
-        Register(RendererHook       = new RendererHook(DalamudServices, MirrorServices, DirectXData));
-        Register(CameraHooks        = new CameraHooks(DalamudServices, MirrorServices, RendererHook));
-        Register(ScreenHook         = new ScreenHook(DalamudServices, MirrorServices, DirectXData));
-        Register(BackBufferHook     = new BackBufferHook(DalamudServices, MirrorServices, DirectXData, RendererHook, ScreenHook, ShaderHandler));
-        Register(CubeRenderHook     = new CubeRenderHook(DalamudServices, MirrorServices, DirectXData, RendererHook, CameraHooks, ScreenHook, BackBufferHook, ShaderHandler));
-        Register(ResourceHooks      = new ResourceHooks(DalamudServices, MirrorServices, ResourceHandler));
+        Register(RendererHook               = new RendererHook(DalamudServices, MirrorServices, DirectXData));
+        Register(CameraHooks                = new CameraHooks(DalamudServices, MirrorServices, RendererHook));
+        Register(ScreenHook                 = new ScreenHook(DalamudServices, MirrorServices, DirectXData));
+        Register(BackBufferHook             = new BackBufferHook(DalamudServices, MirrorServices, DirectXData, RendererHook, ScreenHook, ShaderHandler));
+        Register(TransparentBackBufferHook  = new TransparentBackBufferHook(DalamudServices, MirrorServices, DirectXData, RendererHook, ScreenHook, ShaderHandler));
+        Register(CubeRenderHook             = new CubeRenderHook(DalamudServices, MirrorServices, DirectXData, RendererHook, CameraHooks, ScreenHook, BackBufferHook, ShaderHandler));
+        Register(ResourceHooks              = new ResourceHooks(DalamudServices, MirrorServices, ResourceHandler));
 
         Initialize();
     }

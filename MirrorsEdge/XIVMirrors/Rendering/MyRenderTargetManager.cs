@@ -104,7 +104,7 @@ internal unsafe struct MyRenderTargetManager
     /// Transparent Normal Map 2
     /// <para>- Follows dynamic resolution</para>
     /// </summary>
-    [FieldOffset(0xA0)] public Texture* TransparentNormalMap2;
+    [FieldOffset(0xA0)] public Texture* TransparentStrengthMap;
 
     /// <summary>
     /// Transparent Diffuse Map
@@ -127,13 +127,13 @@ internal unsafe struct MyRenderTargetManager
     /// Transparent Light Map
     /// <para>- Follows dynamic resolution</para>
     /// </summary>
-    [FieldOffset(0xC0)] public Texture* TransparentLightMap;
+    [FieldOffset(0xC0)] public Texture* TransparentDepthBuffer;
 
     /// <summary>
     /// Transparent Shadow Map
     /// <para>- Follows dynamic resolution</para>
     /// </summary>
-    [FieldOffset(0xC8)] public Texture* TransparentShadowMap;
+    [FieldOffset(0xC8)] public Texture* TransparentRealTimeLightMap;
 
     /// <summary>
     /// Transparent Diffuse Light Map

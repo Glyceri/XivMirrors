@@ -10,7 +10,7 @@ struct PS_IN
 float4 PSMain(PS_IN input) : SV_TARGET
 {
     float4 colour = inputTexture.Sample(samplerState, input.uv);
-
+    
     //colour.a = 1.0; // YUPP c:
 
     return colour;

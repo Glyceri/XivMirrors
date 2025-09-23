@@ -146,7 +146,7 @@ internal unsafe class CameraHooks : HookableElement
         return Camera_CtorHook!.Original(camera);
     }
 
-    public override void OnDispose()
+    protected override void OnDispose()
     {
         EnvironmentManagerUpdateHook?.Dispose();
 

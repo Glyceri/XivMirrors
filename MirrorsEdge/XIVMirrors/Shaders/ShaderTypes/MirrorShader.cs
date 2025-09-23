@@ -11,7 +11,7 @@ namespace MirrorsEdge.XIVMirrors.shaders.ShaderTypes;
 
 internal class MirrorShader : Shader
 {
-    public MirrorShader(DirectXData data, MirrorServices mirrorServices, ShaderFactory factory, string fragmentFile) : base(data, mirrorServices, factory, "ImageMapperVertexShader.hlsl", fragmentFile, [new("POSITION", 0, SharpDX.DXGI.Format.R32G32B32_Float, 0, 0), new("TEXCOORD", 0, SharpDX.DXGI.Format.R32G32_Float, InputElement.AppendAligned, 0)])
+    public MirrorShader(DirectXData data, MirrorServices mirrorServices, ShaderFactory factory) : base(data, mirrorServices, factory, "ImageMapperVertexShader.hlsl", "MirrorFragmentShader.hlsl", [new("POSITION", 0, SharpDX.DXGI.Format.R32G32B32_Float, 0, 0), new("TEXCOORD", 0, SharpDX.DXGI.Format.R32G32_Float, InputElement.AppendAligned, 0)])
     {
 
     }
@@ -20,8 +20,7 @@ internal class MirrorShader : Shader
         (
             MappedTexture depthTextureNoTransparency, 
             MappedTexture depthTextureWithTransparency,
-            MappedTexture backBufferNoUI,
-            MappedTexture backBufferWithUI,
+            MappedTexture backBuffer,
             MappedTexture modelMap,
             MappedTexture modelDepthMap,
             RenderTarget renderTarget
@@ -39,10 +38,9 @@ internal class MirrorShader : Shader
 
         DirectXData.Context.PixelShader.SetShaderResource(0, depthTextureNoTransparency.ShaderResourceView);
         DirectXData.Context.PixelShader.SetShaderResource(1, depthTextureWithTransparency.ShaderResourceView);
-        DirectXData.Context.PixelShader.SetShaderResource(2, backBufferNoUI.ShaderResourceView);
-        DirectXData.Context.PixelShader.SetShaderResource(3, backBufferWithUI.ShaderResourceView);
-        DirectXData.Context.PixelShader.SetShaderResource(4, modelMap.ShaderResourceView);
-        DirectXData.Context.PixelShader.SetShaderResource(5, modelDepthMap.ShaderResourceView);
+        DirectXData.Context.PixelShader.SetShaderResource(2, backBuffer.ShaderResourceView);
+        DirectXData.Context.PixelShader.SetShaderResource(3, modelMap.ShaderResourceView);
+        DirectXData.Context.PixelShader.SetShaderResource(4, modelDepthMap.ShaderResourceView);
 
         DirectXData.Context.OutputMerger.SetRenderTargets(renderTarget.RenderTargetView);
 

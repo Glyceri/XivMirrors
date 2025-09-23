@@ -1,71 +1,34 @@
 using Dalamud.Plugin;
-using MirrorsEdge.XIVMirrors.Memory;
-using MirrorsEdge.XIVMirrors.Cameras;
-using MirrorsEdge.XIVMirrors.Hooking;
-using MirrorsEdge.XIVMirrors.Resources;
 using MirrorsEdge.XIVMirrors.Services;
-using MirrorsEdge.XIVMirrors.Shaders;
-using MirrorsEdge.XIVMirrors.Windowing;
 using System.Reflection;
-using MirrorsEdge.XIVMirrors.ResourceHandling;
-using MirrorsEdge.XIVMirrors.Commands;
+using System.Threading;
 
 namespace MirrorsEdge;
 
 public sealed class MirrorsEdgePlugin : IDalamudPlugin
 {
+    //if you need to compile shaders at runtime and want to handle it gracefully, catch DllNotFoundException/EntryPointNotFoundException and tell the user to winetricks d3dcompiler_47 (assuming it's 47 you use)
+
     public readonly string Version;
 
-    private readonly DalamudServices    DalamudServices;
-    private readonly MirrorServices     MirrorServices;
-
-    private readonly DirectXData        DirectXData;
-
-    private readonly HookManager        HookManager;
-    private readonly ResourceHandler    ResourceHandler;
-    private readonly CameraHandler      CameraHandler;
-    private readonly WindowHandler      WindowHandler;
-
-    private readonly ResourceLoader     ResourceLoader;
-    private readonly ShaderHandler      ShaderHandler;
-
-    private readonly CommandHandler     CommandHandler;
+    private MirrorsEdgeStarter? mirrorsEdgeStarter;
 
     public MirrorsEdgePlugin(IDalamudPluginInterface dalamud)
     {
-        Version             = Assembly.GetExecutingAssembly().GetName().Version?.ToString() ?? "Unknown Version";
+        Version = Assembly.GetExecutingAssembly().GetName().Version?.ToString() ?? "Unknown Version";
 
-        DalamudServices     = DalamudServices.Create(dalamud, this)!;
+        DalamudServices dalamudServices = DalamudServices.Create(dalamud, this);
 
-        MirrorServices      = new MirrorServices(DalamudServices);
-
-        DirectXData         = new DirectXData(MirrorServices);
-
-        ResourceLoader      = new ResourceLoader(DirectXData);
-
-        ShaderHandler       = new ShaderHandler(MirrorServices, ResourceLoader, DirectXData);
-
-        ResourceHandler     = new ResourceHandler(DalamudServices, MirrorServices);
-
-        HookManager         = new HookManager(DalamudServices, MirrorServices, DirectXData, ShaderHandler, ResourceHandler);
-
-        CameraHandler       = new CameraHandler(DalamudServices, MirrorServices, HookManager.CameraHooks);
-
-        WindowHandler       = new WindowHandler(DalamudServices, MirrorServices, CameraHandler, HookManager.RendererHook, HookManager.ScreenHook, ShaderHandler, DirectXData, HookManager.BackBufferHook, HookManager.CubeRenderHook);
-
-        CommandHandler      = new CommandHandler(DalamudServices, MirrorServices, WindowHandler);
+        // This NEEDS to start on a framework thread. There really is no other way around it.
+        // Hooking in the middle of a drawcall is just detrimental istg.
+        _ = dalamudServices.Framework.RunOnFrameworkThread(() =>
+        {
+            mirrorsEdgeStarter = new MirrorsEdgeStarter(dalamudServices);
+        });
     }
 
     public void Dispose()
     {
-        CommandHandler?.Dispose();
-
-        ResourceHandler?.Dispose();
-
-        HookManager?.Dispose();
-        WindowHandler?.Dispose();
-        CameraHandler?.Dispose();
-
-        DirectXData?.Dispose();
+        mirrorsEdgeStarter?.Dispose();
     }
 }

@@ -19,24 +19,26 @@ internal unsafe class DebugWindow : MirrorWindow
     protected override Vector2 MaxSize      { get; } = new Vector2(2000, 2000);
     protected override Vector2 DefaultSize  { get; } = new Vector2(800, 400);
 
-    private readonly CameraHandler  CameraHandler;
-    private readonly RendererHook   RendererHook;
-    private readonly ScreenHook     ScreenHook;
-    private readonly ShaderHandler  ShaderHandler;
-    private readonly DirectXData    DirectXData;
-    private readonly BackBufferHook BackBufferHook;
-    private readonly CubeRenderHook CubeRenderHook;
+    private readonly CameraHandler              CameraHandler;
+    private readonly RendererHook               RendererHook;
+    private readonly ScreenHook                 ScreenHook;
+    private readonly ShaderHandler              ShaderHandler;
+    private readonly DirectXData                DirectXData;
+    private readonly BackBufferHook             BackBufferHook;
+    private readonly CubeRenderHook             CubeRenderHook;
+    private readonly TransparentBackBufferHook  TransparentBackBufferHook;
 
 
-    public DebugWindow(WindowHandler windowHandler, DalamudServices dalamudServices, MirrorServices mirrorServices, CameraHandler cameraHandler, RendererHook rendererHook, ScreenHook screenHook, ShaderHandler shaderFactory, DirectXData directXData, BackBufferHook backBufferHook, CubeRenderHook cubeRenderHook) : base(windowHandler, dalamudServices, mirrorServices, "Mirrors Dev Window", ImGuiWindowFlags.None)
+    public DebugWindow(WindowHandler windowHandler, DalamudServices dalamudServices, MirrorServices mirrorServices, CameraHandler cameraHandler, RendererHook rendererHook, ScreenHook screenHook, ShaderHandler shaderFactory, DirectXData directXData, BackBufferHook backBufferHook, TransparentBackBufferHook tBackBufferHook, CubeRenderHook cubeRenderHook) : base(windowHandler, dalamudServices, mirrorServices, "Mirrors Dev Window", ImGuiWindowFlags.None)
     {
-        CameraHandler   = cameraHandler;
-        RendererHook    = rendererHook;
-        ScreenHook      = screenHook;
-        ShaderHandler   = shaderFactory;
-        DirectXData     = directXData;
-        BackBufferHook  = backBufferHook;
-        CubeRenderHook  = cubeRenderHook;
+        CameraHandler               = cameraHandler;
+        RendererHook                = rendererHook;
+        ScreenHook                  = screenHook;
+        ShaderHandler               = shaderFactory;
+        DirectXData                 = directXData;
+        BackBufferHook              = backBufferHook;
+        CubeRenderHook              = cubeRenderHook;
+        TransparentBackBufferHook   = tBackBufferHook;
 
         ScreenHook.RegisterScreenSizeChangeCallback(OnScreensizeChanged);
 
@@ -55,14 +57,14 @@ internal unsafe class DebugWindow : MirrorWindow
         
     }
 
-    private void DrawMappedTexture(RenderTarget? mappedTexture)
+    private void DrawMappedTexture(RenderTarget? mappedTexture, Vector2 size)
     {
         if (mappedTexture == null)
         {
             return;
         }
 
-        ImGui.Image(mappedTexture.Handle, new System.Numerics.Vector2(500, 500));
+        ImGui.Image(mappedTexture.Handle, size);
     }
 
     private void DrawBackBuffer()
@@ -149,12 +151,38 @@ internal unsafe class DebugWindow : MirrorWindow
             //ImGui.Image(BackBufferHook.ThatOneSecretTexture.Handle, new System.Numerics.Vector2(500, 500));
         }
 
-        DrawMappedTexture(BackBufferHook.BackBufferNoUI);
+        ImGui.NewLine();
+        ImGui.NewLine();
+        ImGui.NewLine();
+        ImGui.NewLine();
+        ImGui.NewLine();
+
+        Vector2 defaultSize = new Vector2(500, 500);
+
+        DrawMappedTexture(TransparentBackBufferHook.FinalRenderTarget, new Vector2(1920, 1080));
+
+        DrawMappedTexture(TransparentBackBufferHook.RtTransparentDiffuseMap, defaultSize);
         ImGui.SameLine();
-        DrawMappedTexture(BackBufferHook.BackBufferWithUI);
-        DrawMappedTexture(BackBufferHook.DepthBufferNoTransparency);
+        DrawMappedTexture(TransparentBackBufferHook.RtTransparentStrengthMap, defaultSize);
+
+        DrawMappedTexture(TransparentBackBufferHook.RtTransparentDiffuseLightMap, defaultSize);
         ImGui.SameLine();
-        DrawMappedTexture(BackBufferHook.DepthBufferWithTransparency);
+        DrawMappedTexture(TransparentBackBufferHook.RtTransparentRealTimeLightMap, defaultSize);
+
+        DrawMappedTexture(TransparentBackBufferHook.RtTransparentSpecularLightMap, defaultSize);
+
+        ImGui.NewLine();
+        ImGui.NewLine();
+        ImGui.NewLine();
+        ImGui.NewLine();
+        ImGui.NewLine();
+
+        DrawMappedTexture(BackBufferHook.BackBufferNoUI, defaultSize);
+        ImGui.SameLine();
+        DrawMappedTexture(BackBufferHook.BackBufferWithUI, defaultSize);
+        DrawMappedTexture(BackBufferHook.DepthBufferNoTransparency, defaultSize);
+        ImGui.SameLine();
+        DrawMappedTexture(BackBufferHook.DepthBufferWithTransparency, defaultSize);
     }
 
     protected override void OnDraw()

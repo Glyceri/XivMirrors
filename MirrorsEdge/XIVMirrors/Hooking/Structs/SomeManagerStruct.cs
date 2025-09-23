@@ -1,5 +1,4 @@
 using FFXIVClientStructs.FFXIV.Client.Graphics.Kernel;
-using FFXIVClientStructs.FFXIV.Client.Graphics.Render;
 using System.Runtime.InteropServices;
 
 namespace MirrorsEdge.XIVMirrors.Hooking.Structs;

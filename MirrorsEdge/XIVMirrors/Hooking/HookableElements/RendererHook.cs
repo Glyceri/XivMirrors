@@ -1,12 +1,8 @@
 using Dalamud.Hooking;
-using FFXIVClientStructs.FFXIV.Client.Game.Control;
 using MirrorsEdge.XIVMirrors.Hooking.Enum;
 using MirrorsEdge.XIVMirrors.Memory;
-using MirrorsEdge.XIVMirrors.Resources;
 using MirrorsEdge.XIVMirrors.Services;
-using SharpDX.Direct3D;
 using SharpDX.Direct3D11;
-using SharpDX.DXGI;
 using System;
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
@@ -25,16 +21,9 @@ internal unsafe class RendererHook : HookableElement
     private readonly List<RenderPassDelegate>                                   renderPasses            = [];
     private readonly Hook<OMPresentDelegate>?                                   OMPresentHook;
     private readonly Hook<OMSetRenderTargetsDelegate>?                          OmSetRenderTargetsHook;
-    private readonly Hook<OMSetRenderTargetsAndUnorderedAccessViewsDelegate>?   OMSetRenderTargetsAndUnorderedAccessViewsHook;
 
-    private int bindCount = 0;
-    private int bindcount2 = 0;
-
-    public List<MappedTexture> MappedTextures = new List<MappedTexture>();
-    public List<MappedTexture> RenderTargetViews = new List<MappedTexture>();
-
-    List<nint> texturesThisFrame = new List<nint>();
-    List<nint> rendersThisFrame = new List<nint>();
+    public RenderTargetView? GamesRenderTargetThisFrame;
+    public DepthStencilView? GamesDepthStencilViewThisFrame;
 
     public RendererHook(DalamudServices dalamudServices, MirrorServices mirrorServices, DirectXData directXData) : base(dalamudServices, mirrorServices)
     {
@@ -43,11 +32,9 @@ internal unsafe class RendererHook : HookableElement
         nint deviceVTable                   = GetVTable(directXData.Context.NativePointer);
 
         nint setRenderTargetsAddress        = GetVTableAddress(deviceVTable, 33);
-        nint setRenderTargets2Address       = GetVTableAddress(deviceVTable, 34);
 
         OmSetRenderTargetsHook              = DalamudServices.Hooking.HookFromAddress<OMSetRenderTargetsDelegate>(setRenderTargetsAddress, OMSetRenderTargetsDetour);
-        OMSetRenderTargetsAndUnorderedAccessViewsHook = DalamudServices.Hooking.HookFromAddress<OMSetRenderTargetsAndUnorderedAccessViewsDelegate>(setRenderTargets2Address, OMSetRenderTargetsAndUnorderedAccessViewsDetour);
-
+        
         nint swapChainVTable                = GetVTable(directXData.SwapChain.NativePointer);
 
         nint vtablePresentAddress           = GetVTableAddress(swapChainVTable, 8);
@@ -58,88 +45,18 @@ internal unsafe class RendererHook : HookableElement
     public override void Init()
     {
         OMPresentHook?.Enable();
+        //OmSetRenderTargetsHook?.Enable();
     }
-
-    private void DoCriminalThings(nint tex, ref List<MappedTexture> textureList)
-    {
-        DepthStencilView view = new DepthStencilView(tex);
-
-        if (view.Resource == null)
-        {
-            return;
-        }
-
-        Texture2D texture = view.Resource.QueryInterface<Texture2D>();
-
-        Texture2DDescription oldDesc = texture.Description;
-
-        Texture2DDescription description = new Texture2DDescription
-        {
-            Width = oldDesc.Width,
-            Height = oldDesc.Height,
-            MipLevels = 1,
-            ArraySize = 1,
-            Format = Format.R24_UNorm_X8_Typeless,
-            SampleDescription = new SampleDescription(1, 0),
-            Usage = ResourceUsage.Default,
-            BindFlags = BindFlags.DepthStencil | BindFlags.ShaderResource
-        };
-
-        Texture2D newDepthTexture = new Texture2D(DirectXData.Device, description);
-
-        DirectXData.Context.CopyResource(texture, newDepthTexture);
-
-        var srvDesc = new ShaderResourceViewDescription
-        {
-            Format = SharpDX.DXGI.Format.R24_UNorm_X8_Typeless,
-            Dimension = ShaderResourceViewDimension.Texture2D,
-            Texture2D = new ShaderResourceViewDescription.Texture2DResource
-            {
-                MipLevels = 1,
-                MostDetailedMip = 0
-            }
-        };
-
-        ShaderResourceView srv = new ShaderResourceView(DirectXData.Device, newDepthTexture, srvDesc);
-
-        textureList.Add(new MappedTexture(DirectXData, ref newDepthTexture, ref srv));
-    }
-
 
     private int ProperPresentDetour(nint swapChain, uint syncInterval, uint flags)
     {
         try
         {
-            try
-            {
-                for (int i = 0; i < MappedTextures.Count; i++)
-                {
-                    MappedTextures[i].Dispose();
-                }
-
-                MappedTextures.Clear();
-
-
-                foreach (nint address in texturesThisFrame)
-                {
-                    DoCriminalThings(address, ref MappedTextures);
-                }
-            }
-            catch (Exception e)
-            {
-                MirrorServices.MirrorLog.LogException(e);
-            }
-
             foreach (RenderPassDelegate renderPass in renderPasses)
             {
                 renderPass?.Invoke(RenderPass.Pre);
             }
-
-            bindCount = 0;
-            bindcount2 = 0;
-            texturesThisFrame.Clear();
-            rendersThisFrame.Clear();
-
+           
             int returner = OMPresentHook!.Original(swapChain, syncInterval, flags);
 
             foreach (RenderPassDelegate renderPass in renderPasses)
@@ -159,24 +76,8 @@ internal unsafe class RendererHook : HookableElement
 
     private void OMSetRenderTargetsDetour(nint device, uint numViews, nint renderTargetView, nint depthStencilView)
     {
-        bindCount++;
-
-        if (depthStencilView != nint.Zero)
-        {
-            _ = texturesThisFrame.Remove(depthStencilView);
-            texturesThisFrame.Add(depthStencilView);
-        }
-
         OmSetRenderTargetsHook!.Original(device, numViews, renderTargetView, depthStencilView);
     }
-
-    private void OMSetRenderTargetsAndUnorderedAccessViewsDetour(nint device, uint numViews, nint renderTargetView, nint depthStencilView, uint uavStartSlot, uint numUAVs, nint unorderedAccessView, uint uavInitialCounts)
-    {
-        bindcount2++;
-
-        OMSetRenderTargetsAndUnorderedAccessViewsHook!.Original(device, numViews, renderTargetView, depthStencilView, uavStartSlot, numUAVs, unorderedAccessView, uavInitialCounts);
-    }
-
 
     public void RegisterRenderPassListener(RenderPassDelegate renderDelegate)
     {
@@ -190,25 +91,10 @@ internal unsafe class RendererHook : HookableElement
         _ = renderPasses.Remove(renderDelegate);
     }
 
-    public override void OnDispose()
+    protected override void OnDispose()
     {
-        for (int i = 0; i < MappedTextures.Count; i++)
-        {
-            MappedTextures[i].Dispose();
-        }
-
-        MappedTextures.Clear();
-
-        for (int i = 0; i < RenderTargetViews.Count; i++)
-        {
-            RenderTargetViews[i].Dispose();
-        }
-
-        RenderTargetViews.Clear();
-
         OMPresentHook?.Dispose();
         OmSetRenderTargetsHook?.Dispose();
-        OMSetRenderTargetsAndUnorderedAccessViewsHook?.Dispose();
 
         renderPasses.Clear();
     }

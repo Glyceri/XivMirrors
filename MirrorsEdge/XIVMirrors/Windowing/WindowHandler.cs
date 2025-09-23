@@ -1,14 +1,18 @@
+using Dalamud.Bindings.ImGui;
+using Dalamud.Interface.Utility;
 using Dalamud.Interface.Windowing;
-using MirrorsEdge.XIVMirrors.Hooking.HookableElements;
-using MirrorsEdge.XIVMirrors.Memory;
 using MirrorsEdge.XIVMirrors.Cameras;
 using MirrorsEdge.XIVMirrors.Hooking.HookableElements;
+using MirrorsEdge.XIVMirrors.Hooking.HookableElements;
+using MirrorsEdge.XIVMirrors.Memory;
+using MirrorsEdge.XIVMirrors.Resources;
 using MirrorsEdge.XIVMirrors.Services;
 using MirrorsEdge.XIVMirrors.Shaders;
 using MirrorsEdge.XIVMirrors.Windowing.Interfaces;
 using MirrorsEdge.XIVMirrors.Windowing.Windows;
 using System;
 using System.Linq;
+using System.Numerics;
 
 namespace MirrorsEdge.XIVMirrors.Windowing;
 
@@ -17,29 +21,31 @@ internal class WindowHandler : IDisposable
     private static int _internalCounter = 0;
     public static int InternalCounter { get => _internalCounter++; }
 
-    private readonly DalamudServices    DalamudServices;
-    private readonly MirrorServices     MirrorServices;
-    private readonly CameraHandler      CameraHandler;
-    private readonly RendererHook       RendererHook;
-    private readonly ScreenHook         ScreenHook;
-    private readonly ShaderHandler      ShaderHandler;
-    private readonly DirectXData        DirectXData;
-    private readonly BackBufferHook     BackBufferHook;
-    private readonly CubeRenderHook     CubeRenderHook;
+    private readonly DalamudServices            DalamudServices;
+    private readonly MirrorServices             MirrorServices;
+    private readonly CameraHandler              CameraHandler;
+    private readonly RendererHook               RendererHook;
+    private readonly ScreenHook                 ScreenHook;
+    private readonly ShaderHandler              ShaderHandler;
+    private readonly DirectXData                DirectXData;
+    private readonly BackBufferHook             BackBufferHook;
+    private readonly CubeRenderHook             CubeRenderHook;
+    private readonly TransparentBackBufferHook  TransparentBackBufferHook;
 
-    private readonly WindowSystem       WindowSystem;
+    private readonly WindowSystem               WindowSystem;
 
-    public WindowHandler(DalamudServices dalamudServices, MirrorServices mirrorServices, CameraHandler cameraHandler, RendererHook rendererHook, ScreenHook screenHook, ShaderHandler shaderFactory, DirectXData directXData, BackBufferHook backBufferHook, CubeRenderHook cubeRenderHook)
+    public WindowHandler(DalamudServices dalamudServices, MirrorServices mirrorServices, CameraHandler cameraHandler, RendererHook rendererHook, ScreenHook screenHook, ShaderHandler shaderFactory, DirectXData directXData, BackBufferHook backBufferHook, CubeRenderHook cubeRenderHook, TransparentBackBufferHook transparentBackBufferHook)
     {
-        DalamudServices = dalamudServices;
-        MirrorServices  = mirrorServices;
-        CameraHandler   = cameraHandler;
-        RendererHook    = rendererHook;
-        ShaderHandler   = shaderFactory;
-        ScreenHook      = screenHook;
-        DirectXData     = directXData;
-        BackBufferHook  = backBufferHook;
-        CubeRenderHook  = cubeRenderHook;
+        DalamudServices             = dalamudServices;
+        MirrorServices              = mirrorServices;
+        CameraHandler               = cameraHandler;
+        RendererHook                = rendererHook;
+        ShaderHandler               = shaderFactory;
+        ScreenHook                  = screenHook;
+        DirectXData                 = directXData;
+        BackBufferHook              = backBufferHook;
+        CubeRenderHook              = cubeRenderHook;
+        TransparentBackBufferHook   = transparentBackBufferHook;
 
         WindowSystem = new WindowSystem("Mirrors");
 
@@ -52,7 +58,7 @@ internal class WindowHandler : IDisposable
     {
         AddWindow(new WorldWindow(this, DalamudServices, MirrorServices));
 
-        DalamudServices.Framework.RunOnFrameworkThread(() => AddWindow(new DebugWindow(this, DalamudServices, MirrorServices, CameraHandler, RendererHook, ScreenHook, ShaderHandler, DirectXData, BackBufferHook, CubeRenderHook)));
+        AddWindow(new DebugWindow(this, DalamudServices, MirrorServices, CameraHandler, RendererHook, ScreenHook, ShaderHandler, DirectXData, BackBufferHook, TransparentBackBufferHook, CubeRenderHook));
     }
 
     private void AddWindow(MirrorWindow window)

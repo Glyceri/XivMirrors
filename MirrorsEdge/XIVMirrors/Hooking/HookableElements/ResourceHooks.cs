@@ -234,7 +234,7 @@ internal unsafe class ResourceHooks : HookableElement
         return CheckFileStatePrototypeHook!.Original(ptr, crc64);
     }
 
-    public override void OnDispose()
+    protected override void OnDispose()
     {
         TextureOnLoadHook?.Dispose();
         CheckFileStatePrototypeHook?.Dispose();

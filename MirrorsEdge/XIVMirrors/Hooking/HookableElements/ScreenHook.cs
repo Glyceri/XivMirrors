@@ -112,7 +112,7 @@ internal unsafe class ScreenHook : HookableElement
         HandleImGuiScreenSize();
     }
 
-    public override void OnDispose()
+    protected override void OnDispose()
     {
         omResizeBuffersHook?.Disable();
         omResizeBuffersHook?.Dispose();

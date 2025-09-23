@@ -28,7 +28,8 @@
       <EmbeddedResource Include="XIVMirrors\shaders\files\MirrorFragmentShader.hlsl" LogicalName="MirrorFragmentShader.hlsl" />
       <EmbeddedResource Include="XIVMirrors\shaders\files\ShadedFragmentShader.hlsl" LogicalName="ShadedFragmentShader.hlsl" />
       <EmbeddedResource Include="xivmirrors\shaders\files\InvertAlphaFragmentShader.hlsl" LogicalName="InvertAlphaFragmentShader.hlsl" />
-   
+      <EmbeddedResource Include="xivmirrors\shaders\files\TransparencyMimicFragmentShader.hlsl" LogicalName="TransparencyMimicFragmentShader.hlsl" />
+
       <EmbeddedResource Include="XIVMirrors\shaders\files\nightsky.png" LogicalName="NightSky.png" />
   </ItemGroup>
 

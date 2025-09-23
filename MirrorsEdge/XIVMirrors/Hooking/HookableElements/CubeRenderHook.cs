@@ -1,4 +1,6 @@
+using Dalamud.Bindings.ImGui;
 using Dalamud.Interface.Textures.TextureWraps;
+using Dalamud.Interface.Utility;
 using MirrorsEdge.XIVMirrors.Hooking.Enum;
 using MirrorsEdge.XIVMirrors.Memory;
 using MirrorsEdge.XIVMirrors.Rendering;
@@ -238,7 +240,12 @@ internal class CubeRenderHook : HookableElement
             return;
         }
 
-        ShaderHandler.MirrorShader.Bind(nonTransparentDepthBufferCopy, transparentDepthBufferCopy, backBufferNoUICopy, backBufferWithUICopy, cubeTextureCopy, depthTextureCopy, finalRenderTarget);
+        if (BackBufferHook.SecondDalamudBackBufferBase == null)
+        {
+            return;
+        }
+
+        ShaderHandler.MirrorShader.Bind(nonTransparentDepthBufferCopy, transparentDepthBufferCopy, BackBufferHook.SecondDalamudBackBufferBase, cubeTextureCopy, depthTextureCopy, finalRenderTarget);
 
         BlendStateDescription blendDesc = new BlendStateDescription();
 
@@ -250,6 +257,19 @@ internal class CubeRenderHook : HookableElement
         ShaderHandler.MirrorShader.Draw();
 
         ShaderHandler.MirrorShader.UnbindTexture();
+
+        using MappedTexture texture = finalRenderTarget.ToMappedTexture(DirectXData);
+
+        ShaderHandler.AlphaShader.Bind(texture);
+
+
+        /*
+        DirectXData.Context.OutputMerger.SetRenderTargets(RendererHook.GamesDepthStencilViewThisFrame, RendererHook.GamesRenderTargetThisFrame);
+
+        ShaderHandler.AlphaShader.Draw();
+
+        ShaderHandler.AlphaShader.UnbindTexture();
+        */
     }
 
 
@@ -283,7 +303,7 @@ internal class CubeRenderHook : HookableElement
         MirrorServices.MirrorLog.LogInfo("Created render target");
     }
 
-    public override void OnDispose()
+    protected override void OnDispose()
     {
         backBufferWithUICopy?.Dispose();
         backBufferNoUICopy?.Dispose();

@@ -16,7 +16,7 @@ internal class ImageMappedShader : Shader
 
     }
 
-    public void Bind(MappedTexture mappedTexture, RenderTarget renderTarget)
+    public void Bind(MappedTexture mappedTexture, RenderTarget? renderTarget = null)
     {
         Bind(0);
 
@@ -29,9 +29,12 @@ internal class ImageMappedShader : Shader
         DirectXData.Context.VertexShader.SetConstantBuffer(0, mappedTexture.ConstantBuffer);
         DirectXData.Context.PixelShader.SetShaderResource(0, mappedTexture.ShaderResourceView);
 
-        DirectXData.Context.OutputMerger.SetRenderTargets(renderTarget.RenderTargetView);
+        if (renderTarget != null)
+        {
+            DirectXData.Context.OutputMerger.SetRenderTargets(renderTarget.RenderTargetView);
 
-        DirectXData.Context.ClearRenderTargetView(renderTarget.RenderTargetView, new RawColor4(1, 0, 1, 1));
+            DirectXData.Context.ClearRenderTargetView(renderTarget.RenderTargetView, new RawColor4(1, 0, 1, 1));
+        }
 
         DirectXData.Context.InputAssembler.PrimitiveTopology = PrimitiveTopology.TriangleList;
     }

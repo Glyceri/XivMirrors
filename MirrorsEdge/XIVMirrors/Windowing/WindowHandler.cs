@@ -107,6 +107,26 @@ internal class WindowHandler : IDisposable
 
         _internalCounter = 0;
 
+        if (CubeRenderHook.FinalMappedTexture != null)
+        {
+            ImGui.PushStyleVar(ImGuiStyleVar.WindowPadding, Vector2.Zero);
+
+            ImGuiHelpers.ForceNextWindowMainViewport();
+            ImGuiHelpers.SetNextWindowPosRelativeMainViewport(Vector2.Zero);
+            
+            if (ImGui.Begin("##MirrorFinalOverlay", ImGuiWindowFlags.NoInputs | ImGuiWindowFlags.NoNav | ImGuiWindowFlags.NoTitleBar | ImGuiWindowFlags.NoScrollbar | ImGuiWindowFlags.NoBackground))
+            {
+                Vector2 screensize = new Vector2(CubeRenderHook.FinalMappedTexture.Width, CubeRenderHook.FinalMappedTexture.Height);
+
+                ImGui.SetWindowSize(screensize);
+
+                ImGui.GetWindowDrawList().AddImage(CubeRenderHook.FinalMappedTexture.Handle, Vector2.Zero, screensize);
+                ImGui.End();
+            }
+
+            ImGui.PopStyleVar();
+        }
+
         WindowSystem.Draw();
     }
 

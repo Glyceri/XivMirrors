@@ -49,6 +49,7 @@ internal class CubeRenderHook : HookableElement
     private MappedTexture? depthTextureCopy;
 
     private RenderTarget?  finalRenderTarget;
+    private MappedTexture? finalMappedTexture;
 
     public ShaderResourceView? OutputView
         => renderTarget?.ShaderResourceView;
@@ -70,6 +71,9 @@ internal class CubeRenderHook : HookableElement
 
     public RenderTarget? FinalRenderTarget
         => finalRenderTarget;
+
+    public MappedTexture? FinalMappedTexture
+        => finalMappedTexture;
 
     public CubeRenderHook(DalamudServices dalamudServices, MirrorServices mirrorServices, DirectXData directXData, RendererHook renderHook, CameraHooks cameraHook, ScreenHook screenHook, BackBufferHook backBufferHook, ShaderHandler shaderHandler) : base(dalamudServices, mirrorServices)
     {
@@ -189,6 +193,7 @@ internal class CubeRenderHook : HookableElement
         depthTextureCopy?.Dispose();
 
         finalRenderTarget?.Dispose();
+        finalMappedTexture?.Dispose();
 
         backBufferWithUICopy            = BackBufferHook?.BackBufferWithUI?.ToMappedTexture(DirectXData);
         backBufferNoUICopy              = BackBufferHook?.BackBufferNoUI?.ToMappedTexture(DirectXData);
@@ -240,12 +245,17 @@ internal class CubeRenderHook : HookableElement
             return;
         }
 
-        if (BackBufferHook.SecondDalamudBackBufferBase == null)
+        if (BackBufferHook.BackBufferWithUIBase == null)
         {
             return;
         }
 
-        ShaderHandler.MirrorShader.Bind(nonTransparentDepthBufferCopy, transparentDepthBufferCopy, BackBufferHook.SecondDalamudBackBufferBase, cubeTextureCopy, depthTextureCopy, finalRenderTarget);
+        if (BackBufferHook.BackBufferNoUIBase == null)
+        {
+            return;
+        }
+
+        ShaderHandler.MirrorShader.Bind(nonTransparentDepthBufferCopy, transparentDepthBufferCopy, BackBufferHook.BackBufferWithUIBase, BackBufferHook.BackBufferNoUIBase, cubeTextureCopy, depthTextureCopy, finalRenderTarget);
 
         BlendStateDescription blendDesc = new BlendStateDescription();
 
@@ -258,18 +268,7 @@ internal class CubeRenderHook : HookableElement
 
         ShaderHandler.MirrorShader.UnbindTexture();
 
-        using MappedTexture texture = finalRenderTarget.ToMappedTexture(DirectXData);
-
-        ShaderHandler.AlphaShader.Bind(texture);
-
-
-        /*
-        DirectXData.Context.OutputMerger.SetRenderTargets(RendererHook.GamesDepthStencilViewThisFrame, RendererHook.GamesRenderTargetThisFrame);
-
-        ShaderHandler.AlphaShader.Draw();
-
-        ShaderHandler.AlphaShader.UnbindTexture();
-        */
+        finalMappedTexture = FinalRenderTarget?.ToMappedTexture(DirectXData);
     }
 
 
@@ -313,6 +312,7 @@ internal class CubeRenderHook : HookableElement
         depthTextureCopy?.Dispose();
 
         finalRenderTarget?.Dispose();
+        finalMappedTexture?.Dispose();
 
         DepthStencilState?.Dispose();
         RasterizerState?.Dispose();

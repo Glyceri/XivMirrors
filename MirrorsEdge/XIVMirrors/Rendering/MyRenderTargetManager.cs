@@ -68,29 +68,39 @@ internal unsafe struct MyRenderTargetManager
     /// <summary>
     /// The depth buffer without any transparent elements buffered.
     /// <para>- Follows dynamic resolution</para>
+    /// <para>Format: D24_UNORM_S8_UINT_3</para>
+    /// <para>Flags: TextureDepthStencil | UserManaged</para>
     /// </summary>
     [FieldOffset(0x70)] public Texture* DepthBufferNoTransparency;
 
     /// <summary>
     /// Unk78
+    /// <para>Format: B8G8R8A8_UNORM OR R16G16B16A16_FLOAT</para>
+    /// <para>Flags: TextureRenderTarget | UserManaged</para>
     /// </summary>
     [FieldOffset(0x78)]  public Texture* Unk78;
 
     /// <summary>
     /// Depth Buffer No Transparency
     /// <para>- Follows dynamic resolution</para>
+    /// <para>Format: D24_UNORM_S8_UINT_3</para>
+    /// <para>Flags: TextureDepthStencil | UserManaged</para>
     /// </summary>
     [FieldOffset(0x80)] public Texture* DepthBufferNoTransparencyCopy;
 
     /// <summary>
     /// Depth Buffer No Transparency Copy 2
     /// <para>- Follows dynamic resolution</para>
+    /// <para>Format: D24_UNORM_S8_UINT_3</para>
+    /// <para>Flags: UserManaged</para>
     /// </summary>
     [FieldOffset(0x88)] public Texture* DepthBufferNoTransparencyCopy2;
 
     /// <summary>
     /// Back buffer with transparency
     /// <para>- Follows dynamic resolution</para>
+    /// <para>Format: D24_UNORM_S8_UINT_3</para>
+    /// <para>Flags: UserManaged</para>
     /// </summary>
     [FieldOffset(0x90)] public Texture* DepthBufferTransparency;
 
@@ -155,6 +165,8 @@ internal unsafe struct MyRenderTargetManager
     /// <summary>
     /// Depth Buffer Transparency Copy
     /// <para>- Follows dynamic resolution</para>
+    /// <para>Format: D24_UNORM_S8_UINT_3</para>
+    /// <para>Flags: TextureDepthStencil | UserManaged</para>
     /// </summary>
     [FieldOffset(0xE8)] public Texture* DepthBufferTransparencyCopy;
 
@@ -180,11 +192,15 @@ internal unsafe struct MyRenderTargetManager
 
     /// <summary>
     /// Screen Space Coordinates
+    /// <para>Format: B8G8R8A8_UNORM OR R16G16B16A16_FLOAT</para>
+    /// <para>Flags: TextureRenderTarget | UserManaged</para>
     /// </summary>
     [FieldOffset(0x110)] public Texture* ScreenSpaceCoordinates;
 
     /// <summary>
     /// Screen Space Coordinates with animated objects cutout
+    /// <para>Format: B8G8R8A8_UNORM OR R16G16B16A16_FLOAT</para>
+    /// <para>Flags: TextureRenderTarget | UserManaged</para>
     /// </summary>
     [FieldOffset(0x118)] public Texture* ScreenSpaceCoordinatesCutout;
 
@@ -210,11 +226,15 @@ internal unsafe struct MyRenderTargetManager
 
     /// <summary>
     /// Top Down Depth Stencil camera anchored 
+    /// <para>Format: B8G8R8A8_UNORM</para>
+    /// <para>Flags: TextureRenderTarget</para>
     /// </summary>
     [FieldOffset(0x140)] public Texture* TopDownDepthStencil;
 
     /// <summary>
     /// Yellow
+    /// <para>Format: B8G8R8A8_UNORM</para>
+    /// <para>Flags: TextureRenderTarget</para>
     /// </summary>
     [FieldOffset(0x148)] public Texture* Yellow;
 
@@ -286,11 +306,15 @@ internal unsafe struct MyRenderTargetManager
 
     /// <summary>
     /// Unk250
+    //// <para>Format: B8G8R8A8_UNORM</para>
+    /// <para>Flags: TextureRenderTarget</para>
     /// </summary>
     [FieldOffset(0x250)] public Texture* Unk250;
 
     /// <summary>
     /// Back Buffer No UI
+    /// <para>Format: B8G8R8A8_UNORM OR R16G16B16A16_FLOAT</para>
+    /// <para>Flags: TextureRenderTarget | ReadWrite | UserManaged</para>
     /// </summary>
     [FieldOffset(0x258)] public Texture* BackBufferNoUICopy3;
 
@@ -383,11 +407,15 @@ internal unsafe struct MyRenderTargetManager
 
     /// <summary>
     /// Back Buffer
+    /// <para>Format: B8G8R8A8_UNORM</para>
+    /// <para>Flags: TextureRenderTarget | UserManaged</para>
     /// </summary>
     [FieldOffset(0x370)] public Texture* BackBuffer;
 
     /// <summary>
     /// Skybox
+    /// <para>Format: B8G8R8A8_UNORM OR R16G16B16A16_FLOAT</para>
+    /// <para>Flags: TextureRenderTarget | UserManaged</para>
     /// </summary>
     [FieldOffset(0x420)] public Texture* Skybox;
 
@@ -402,29 +430,29 @@ internal unsafe struct MyRenderTargetManager
     [FieldOffset(0x4B0)] public Texture* BackBufferNoUICopy6;
 
     /// <summary>
-    /// Unk4B8
-    /// </summary>
-    [FieldOffset(0x4B8)] public Texture* Unk4B8;
-
-    /// <summary>
     /// Back Buffer No UI Copy 7
     /// </summary>
-    [FieldOffset(0x4C0)] public Texture* BackBufferNoUICopy7;
+    [FieldOffset(0x4B8)] public Texture* BackBufferNoUICopy7;
 
     /// <summary>
     /// Back Buffer No UI Copy 8
     /// </summary>
-    [FieldOffset(0x4C8)] public Texture* BackBufferNoUICopy8;
+    [FieldOffset(0x4C0)] public Texture* BackBufferNoUICopy8;
 
     /// <summary>
     /// Back Buffer No UI Copy 9
     /// </summary>
-    [FieldOffset(0x4D0)] public Texture* BackBufferNoUICopy9;
+    [FieldOffset(0x4C8)] public Texture* BackBufferNoUICopy9;
 
     /// <summary>
     /// Back Buffer No UI Copy 10
     /// </summary>
-    [FieldOffset(0x4D8)] public Texture* BackBufferNoUICopy10;
+    [FieldOffset(0x4D0)] public Texture* BackBufferNoUICopy10;
+
+    /// <summary>
+    /// Back Buffer No UI Copy 11
+    /// </summary>
+    [FieldOffset(0x4D8)] public Texture* BackBufferNoUICopy11;
 
     /// <summary>
     /// Back Buffer Copy
@@ -487,7 +515,7 @@ internal unsafe struct MyRenderTargetManager
     /// <summary>
     /// Back Buffer Copy 3
     /// </summary>
-    [FieldOffset(0x570)] public Texture* BackBufferCopy3;
+    [FieldOffset(0x570)] public Texture* DeviceBackBuffer;
 
     /// <summary>
     /// Depth Buffer No Transparency Copy 12
@@ -511,9 +539,9 @@ internal unsafe struct MyRenderTargetManager
     [FieldOffset(0x590)] public Texture* Unk590;
 
     /// <summary>
-    /// Unk598
+    /// Noise Map
     /// </summary>
-    [FieldOffset(0x598)] public Texture* Unk598;
+    [FieldOffset(0x598)] public Texture* NoiseMap;
 
     /// <summary>
     /// Unk5A0
@@ -551,10 +579,10 @@ internal unsafe struct MyRenderTargetManager
     [FieldOffset(0x5D0)] public Texture* Unk5D0;
 
     /// <summary>
-    /// Motion Blur Map
+    /// Some Motion Map
     /// <para>- Follows dynamic resolution</para>
     /// </summary>
-    [FieldOffset(0x5D8)] public Texture* MotionBlurMap;
+    [FieldOffset(0x5D8)] public Texture* SomeMotionMap;
 
     /// <summary>
     /// Unk5E0
@@ -600,6 +628,8 @@ internal unsafe struct MyRenderTargetManager
     /// <summary>
     /// GTAO Skybox Cutout
     /// <para>- Follows dynamic resolution</para>
+    /// <para>Format: R16_FLOAT</para>
+    /// <para>Flags: TextureRenderTarget | ReadWrite | UserManaged </para>
     /// </summary>
     [FieldOffset(0x618)] public Texture* GTAOSkyboxCutout;
 
@@ -610,14 +640,16 @@ internal unsafe struct MyRenderTargetManager
     [FieldOffset(0x620)] public Texture* GTAOOutlineMap;
 
     /// <summary>
-    /// Unk628
+    /// Motion Blur Map
+    /// <para>- Follows dynamic resolution</para>
     /// </summary>
-    [FieldOffset(0x628)] public Texture* Unk628;
+    [FieldOffset(0x628)] public Texture* MotionBlurMap;
 
     /// <summary>
-    /// Unk630
+    /// Motion Blur Map Copy
+    /// <para>- Follows dynamic resolution</para>
     /// </summary>
-    [FieldOffset(0x630)] public Texture* Unk630;
+    [FieldOffset(0x630)] public Texture* MotionBlurMapCopy;
 
     /// <summary>
     /// Unk638
@@ -635,14 +667,16 @@ internal unsafe struct MyRenderTargetManager
     [FieldOffset(0x648)] public Texture* MotionBuffer;
 
     /// <summary>
-    /// Unk650
+    /// SSAO
+    /// <para>- Follows dynamic resolution</para>
     /// </summary>
-    [FieldOffset(0x650)] public Texture* Unk650;
+    [FieldOffset(0x650)] public Texture* SSAO;
 
     /// <summary>
-    /// Unk658
+    /// SSAO Copy
+    /// <para>- Follows dynamic resolution</para>
     /// </summary>
-    [FieldOffset(0x658)] public Texture* Unk658;
+    [FieldOffset(0x658)] public Texture* SSAOCopy;
 
     /// <summary>
     /// Unk660

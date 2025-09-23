@@ -3,6 +3,7 @@ using FFXIVClientStructs.FFXIV.Client.Graphics.Kernel;
 using MirrorsEdge.XIVMirrors.Memory;
 using MirrorsEdge.XIVMirrors.Resources.Struct;
 using SharpDX.Direct3D11;
+using SharpDX.DXGI;
 
 namespace MirrorsEdge.XIVMirrors.Resources;
 
@@ -34,6 +35,32 @@ internal unsafe class MappedTexture : BasicTexture
 
         Width               = nativeTexture->AllocatedWidth;
         Height              = nativeTexture->AllocatedHeight;
+    }
+    
+    public MappedTexture(DirectXData directXData, uint width, uint height) : base (directXData)
+    {
+        isNative                = false;
+        nativeTexture           = null;
+
+        Texture2DDescription newDescription = new Texture2DDescription()
+        { 
+            Width               = (int)width,
+            Height              = (int)height,
+            MipLevels           = 1,
+            ArraySize           = 1,
+            Format              = Format.R16G16B16A16_Float,
+            SampleDescription   = new SampleDescription(1, 0),
+            Usage               = ResourceUsage.Default,
+            BindFlags           = BindFlags.RenderTarget | BindFlags.ShaderResource,
+            CpuAccessFlags      = CpuAccessFlags.None,
+            OptionFlags         = ResourceOptionFlags.None
+        };
+
+        Texture                 = new Texture2D(directXData.Device, newDescription);
+        ShaderResourceView      = new ShaderResourceView(directXData.Device, Texture);
+
+        Width                   = width;
+        Height                  = height;
     }
 
     /// <summary>
@@ -89,9 +116,8 @@ internal unsafe class MappedTexture : BasicTexture
         GetValidStatus();
 
     public RenderTarget CreateRenderTarget(DirectXData data)
-    {
-        return new RenderTarget(data, Texture);
-    }
+        => new RenderTarget(data, Texture);
+    
 
     private uint GetActualWidth()
     {

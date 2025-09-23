@@ -21,6 +21,7 @@ internal class MirrorShader : Shader
             MappedTexture depthTextureNoTransparency, 
             MappedTexture depthTextureWithTransparency,
             MappedTexture backBuffer,
+            MappedTexture backBufferNoUI,
             MappedTexture modelMap,
             MappedTexture modelDepthMap,
             RenderTarget renderTarget
@@ -39,12 +40,13 @@ internal class MirrorShader : Shader
         DirectXData.Context.PixelShader.SetShaderResource(0, depthTextureNoTransparency.ShaderResourceView);
         DirectXData.Context.PixelShader.SetShaderResource(1, depthTextureWithTransparency.ShaderResourceView);
         DirectXData.Context.PixelShader.SetShaderResource(2, backBuffer.ShaderResourceView);
-        DirectXData.Context.PixelShader.SetShaderResource(3, modelMap.ShaderResourceView);
-        DirectXData.Context.PixelShader.SetShaderResource(4, modelDepthMap.ShaderResourceView);
+        DirectXData.Context.PixelShader.SetShaderResource(3, backBufferNoUI.ShaderResourceView);
+        DirectXData.Context.PixelShader.SetShaderResource(4, modelMap.ShaderResourceView);
+        DirectXData.Context.PixelShader.SetShaderResource(5, modelDepthMap.ShaderResourceView);
 
         DirectXData.Context.OutputMerger.SetRenderTargets(renderTarget.RenderTargetView);
 
-        DirectXData.Context.ClearRenderTargetView(renderTarget.RenderTargetView, new RawColor4(1, 0, 1, 1));
+        DirectXData.Context.ClearRenderTargetView(renderTarget.RenderTargetView, new RawColor4(0, 0, 0, 0));
 
         DirectXData.Context.InputAssembler.PrimitiveTopology = PrimitiveTopology.TriangleList;
     }

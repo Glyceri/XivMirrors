@@ -69,7 +69,7 @@ internal unsafe class DebugWindow : MirrorWindow
 
     private void DrawBackBuffer()
     {
-        Vector2 size = new Vector2(1920, 1080);
+        Vector2 size = ImGui.GetContentRegionAvail();
 
         if (CubeRenderHook.FinalRenderTarget != null)
         {

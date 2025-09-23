@@ -175,7 +175,7 @@ internal unsafe class BackBufferHook : BufferBuilder
 
         bool failed = false;
 
-        failed |= !OverrideMappedTexture(ref backBufferWithUI,          ref rtBackBufferWithUI,             renderTargetManager->BackBuffer);
+        failed |= !OverrideMappedTexture(ref backBufferWithUI,          ref rtBackBufferWithUI,             renderTargetManager->DeviceBackBuffer);
         failed |= !OverrideMappedTexture(ref backBufferNoUI,            ref rtBackBufferNoUI,               renderTargetManager->BackBufferNoUICopy);
         failed |= !OverrideMappedTexture(ref nonTransparentDepthBuffer, ref rtNonTransparentDepthBuffer,    renderTargetManager->DepthBufferNoTransparency);
         failed |= !OverrideMappedTexture(ref transparentDepthBuffer,    ref rtTransparentDepthBuffer,       renderTargetManager->DepthBufferTransparency);

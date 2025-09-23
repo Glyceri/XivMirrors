@@ -1,51 +1,134 @@
 using Dalamud.Hooking;
+using Dalamud.Utility.Signatures;
+using FFXIVClientStructs.FFXIV.Client.Graphics.Render;
 using MirrorsEdge.XIVMirrors.Hooking.Enum;
+using MirrorsEdge.XIVMirrors.Hooking.Structs;
 using MirrorsEdge.XIVMirrors.Memory;
+using MirrorsEdge.XIVMirrors.Rendering;
+using MirrorsEdge.XIVMirrors.Resources;
 using MirrorsEdge.XIVMirrors.Services;
 using SharpDX.Direct3D11;
+using SharpDX.DXGI;
 using System;
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
+
+using KernelDevice = FFXIVClientStructs.FFXIV.Client.Graphics.Kernel.Device;
 
 namespace MirrorsEdge.XIVMirrors.Hooking.HookableElements;
 
 internal unsafe class RendererHook : HookableElement
 {
+    private readonly ScreenHook  ScreenHook;
     private readonly DirectXData DirectXData;
 
     public  delegate void RenderPassDelegate(RenderPass renderPass);
     private delegate int  OMPresentDelegate(nint swapChain, uint syncInterval, uint flags);
     private delegate void OMSetRenderTargetsDelegate(nint device, uint numViews, nint renderTargetView, nint depthStencilView);
-    private delegate void OMSetRenderTargetsAndUnorderedAccessViewsDelegate(nint device, uint numViews, nint renderTargetView, nint depthStencilView, uint uavStartSlot, uint numUAVs, nint unorderedAccessView, uint uavInitialCounts);
+    private delegate nint PushbackUIDelegate(nint a1, char a2);
+    private delegate void UpperUIPush(nint a1);
+    private delegate void RenderThreadSetRenderTargetDelegate(KernelDevice* deviceInstance, SetRenderTargetCommand* command);
 
-    private readonly List<RenderPassDelegate>                                   renderPasses            = [];
-    private readonly Hook<OMPresentDelegate>?                                   OMPresentHook;
-    private readonly Hook<OMSetRenderTargetsDelegate>?                          OmSetRenderTargetsHook;
+    private readonly List<RenderPassDelegate> renderPasses  = [];
+    private readonly Hook<OMPresentDelegate>? OMPresentDetour;
 
-    public RenderTargetView? GamesRenderTargetThisFrame;
-    public DepthStencilView? GamesDepthStencilViewThisFrame;
+    [Signature("E8 ?? ?? ?? ?? EB ?? E8 ?? ?? ?? ?? 4C 8D 5C 24 50", DetourName = nameof(PushbackUIDetour))]
+    private Hook<PushbackUIDelegate>? PushbackUIHook = null;
 
-    public RendererHook(DalamudServices dalamudServices, MirrorServices mirrorServices, DirectXData directXData) : base(dalamudServices, mirrorServices)
+    [Signature("41 57 48 83 EC 30 80 B9 ?? ?? ?? ?? ?? 4C 8B F9 ", DetourName = nameof(OnUpperUIPush))]
+    private Hook<UpperUIPush>? UpperUIPushHook = null;
+
+   
+    [Signature("E8 ?? ?? ?? ?? E9 ?? ?? ?? ?? F3 0F 10 5F 18", DetourName = nameof(RenderThreadSetRenderTargetDetour))]
+    private Hook<RenderThreadSetRenderTargetDelegate>? RenderThreadSetRenderTargetHook = null;
+
+    private readonly Hook<OMSetRenderTargetsDelegate>? OmSetRenderTargetsHook = null;
+
+    private bool inUIPush = false;
+
+    private nint lastRenderTarget;
+
+    public RendererHook(DalamudServices dalamudServices, MirrorServices mirrorServices, DirectXData directXData, ScreenHook screenHook) : base(dalamudServices, mirrorServices)
     {
-        DirectXData = directXData;
+        ScreenHook      = screenHook;
+        DirectXData     = directXData;
 
-        nint deviceVTable                   = GetVTable(directXData.Context.NativePointer);
+        OmSetRenderTargetsHook  = GetHook<OMSetRenderTargetsDelegate>(directXData.Context.NativePointer, 0, 33, OMSetRenderTargetsDetour);
 
-        nint setRenderTargetsAddress        = GetVTableAddress(deviceVTable, 33);
+        OMPresentDetour         = GetHook<OMPresentDelegate>(directXData.SwapChain.NativePointer, 0, 8, ProperPresentDetour);
 
-        OmSetRenderTargetsHook              = DalamudServices.Hooking.HookFromAddress<OMSetRenderTargetsDelegate>(setRenderTargetsAddress, OMSetRenderTargetsDetour);
-        
-        nint swapChainVTable                = GetVTable(directXData.SwapChain.NativePointer);
-
-        nint vtablePresentAddress           = GetVTableAddress(swapChainVTable, 8);
-
-        OMPresentHook                       = DalamudServices.Hooking.HookFromAddress<OMPresentDelegate>(vtablePresentAddress, ProperPresentDetour);
+        ScreenHook.RegisterScreenSizeChangeCallback(OnScreenSizeChanged);
     }
 
     public override void Init()
     {
-        OMPresentHook?.Enable();
-        //OmSetRenderTargetsHook?.Enable();
+        OMPresentDetour?.Enable();
+        OmSetRenderTargetsHook?.Enable();
+        PushbackUIHook?.Enable();
+        UpperUIPushHook?.Enable();
+        RenderThreadSetRenderTargetHook?.Enable();
+    }
+
+    private void OnScreenSizeChanged(uint newWidth, uint newHeight)
+    { 
+    }
+
+
+
+    private void RenderThreadSetRenderTargetDetour(KernelDevice* deviceInstance, SetRenderTargetCommand* command)
+    {
+        if (inUIPush)
+        {
+            if (command != null)
+            {
+                MirrorServices.MirrorLog.LogWarning("UI PUSH SET TARGET: " + command->NumberOfRenderTargets);
+            }
+        }
+        else
+        {
+            MirrorServices.MirrorLog.LogVerbose("Thread Set Render Target");
+        }
+
+        RenderThreadSetRenderTargetHook!.Original(deviceInstance, command);
+    }
+
+    private nint PushbackUIDetour(nint a1, char a2)
+    {
+        inUIPush = true;
+        nint returner = PushbackUIHook!.Original(a1, a2);
+        inUIPush = false;
+
+        try
+        {
+                    
+        }
+        catch (Exception ex)
+        {
+            MirrorServices.MirrorLog.LogException(ex);
+        }
+        
+        
+
+        return returner;
+    }
+
+    private void OnUpperUIPush(nint a1)
+    {
+        try
+        {
+            //MirrorServices.MirrorLog.LogWarning("UI UI: " + lastRenderTarget);
+
+            UpperUIPushHook!.Original(a1);
+        }
+        catch(Exception e)
+        {
+            MirrorServices.MirrorLog.LogException(e);
+        }
+    }
+
+    private void OMSetRenderTargetsDetour(nint device, uint numViews, nint renderTargetView, nint depthStencilView)
+    {
+        OmSetRenderTargetsHook!.Original(device, numViews, renderTargetView, depthStencilView);
     }
 
     private int ProperPresentDetour(nint swapChain, uint syncInterval, uint flags)
@@ -57,7 +140,7 @@ internal unsafe class RendererHook : HookableElement
                 renderPass?.Invoke(RenderPass.Pre);
             }
            
-            int returner = OMPresentHook!.Original(swapChain, syncInterval, flags);
+            int returner = OMPresentDetour!.Original(swapChain, syncInterval, flags);
 
             foreach (RenderPassDelegate renderPass in renderPasses)
             {
@@ -70,13 +153,8 @@ internal unsafe class RendererHook : HookableElement
         {
             MirrorServices.MirrorLog.LogException(e);
 
-            return OMPresentHook!.Original(swapChain, syncInterval, flags);
+            return OMPresentDetour!.Original(swapChain, syncInterval, flags);
         }
-    }
-
-    private void OMSetRenderTargetsDetour(nint device, uint numViews, nint renderTargetView, nint depthStencilView)
-    {
-        OmSetRenderTargetsHook!.Original(device, numViews, renderTargetView, depthStencilView);
     }
 
     public void RegisterRenderPassListener(RenderPassDelegate renderDelegate)
@@ -93,8 +171,14 @@ internal unsafe class RendererHook : HookableElement
 
     protected override void OnDispose()
     {
-        OMPresentHook?.Dispose();
+        UpperUIPushHook?.Dispose();
+
+        ScreenHook.DeregisterScreenSizeChangeCallback(OnScreenSizeChanged);
+
         OmSetRenderTargetsHook?.Dispose();
+        PushbackUIHook?.Dispose();
+        OMPresentDetour?.Dispose();
+        RenderThreadSetRenderTargetHook?.Dispose();
 
         renderPasses.Clear();
     }

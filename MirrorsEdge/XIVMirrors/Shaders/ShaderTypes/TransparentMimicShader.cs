@@ -44,7 +44,7 @@ internal class TransparentMimicShader : Shader
 
         DirectXData.Context.OutputMerger.SetRenderTargets(renderTarget.RenderTargetView);
 
-        DirectXData.Context.ClearRenderTargetView(renderTarget.RenderTargetView, new RawColor4(0, 0, 0, 1));
+        DirectXData.Context.ClearRenderTargetView(renderTarget.RenderTargetView, new RawColor4(0, 0, 0, 0));
 
         DirectXData.Context.InputAssembler.PrimitiveTopology = PrimitiveTopology.TriangleList;
     }

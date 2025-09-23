@@ -130,12 +130,18 @@ internal unsafe class TransparentBackBufferHook : BufferBuilder
 
         ShaderHandler.TransparentMimicShader.Bind(transparentDiffuseMapCopy, transparentStrengthMapCopy, transparentDiffuseLightMapCopy, transparentRealTimeLightMapCopy, transparentSpecularLightMapCopy, finalMappedTransparentMap);
 
-        BlendStateDescription blendDesc = new BlendStateDescription();
+        BlendStateDescription blendStateDesc                    = new BlendStateDescription();
 
-        blendDesc.RenderTarget[0].IsBlendEnabled = false;
-        blendDesc.RenderTarget[0].RenderTargetWriteMask = ColorWriteMaskFlags.All;
+        blendStateDesc.RenderTarget[0].IsBlendEnabled           = true;
+        blendStateDesc.RenderTarget[0].SourceBlend              = BlendOption.SourceAlpha;
+        blendStateDesc.RenderTarget[0].DestinationBlend         = BlendOption.InverseSourceAlpha;
+        blendStateDesc.RenderTarget[0].BlendOperation           = BlendOperation.Add;
+        blendStateDesc.RenderTarget[0].SourceAlphaBlend         = BlendOption.One;
+        blendStateDesc.RenderTarget[0].DestinationAlphaBlend    = BlendOption.InverseSourceAlpha;
+        blendStateDesc.RenderTarget[0].AlphaBlendOperation      = BlendOperation.Add;
+        blendStateDesc.RenderTarget[0].RenderTargetWriteMask    = ColorWriteMaskFlags.All;
 
-        DirectXData.Context.OutputMerger.SetBlendState(new BlendState(DirectXData.Device, blendDesc));
+        DirectXData.Context.OutputMerger.SetBlendState(new BlendState(DirectXData.Device, blendStateDesc));
 
         ShaderHandler.TransparentMimicShader.Draw();
 

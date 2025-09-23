@@ -35,9 +35,9 @@ internal class HookManager : IDisposable
         ShaderHandler   = shaderHandler;
         ResourceHandler = resourceHandler;
 
-        Register(RendererHook               = new RendererHook(DalamudServices, MirrorServices, DirectXData));
-        Register(CameraHooks                = new CameraHooks(DalamudServices, MirrorServices, RendererHook));
         Register(ScreenHook                 = new ScreenHook(DalamudServices, MirrorServices, DirectXData));
+        Register(RendererHook               = new RendererHook(DalamudServices, MirrorServices, DirectXData, ScreenHook));
+        Register(CameraHooks                = new CameraHooks(DalamudServices, MirrorServices, RendererHook));
         Register(BackBufferHook             = new BackBufferHook(DalamudServices, MirrorServices, DirectXData, RendererHook, ScreenHook, ShaderHandler));
         Register(TransparentBackBufferHook  = new TransparentBackBufferHook(DalamudServices, MirrorServices, DirectXData, RendererHook, ScreenHook, ShaderHandler));
         Register(CubeRenderHook             = new CubeRenderHook(DalamudServices, MirrorServices, DirectXData, RendererHook, CameraHooks, ScreenHook, BackBufferHook, ShaderHandler));

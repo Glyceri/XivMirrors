@@ -1,8 +1,4 @@
 using Dalamud.Bindings.ImGui;
-using FFXIVClientStructs.FFXIV.Client.Graphics.Environment;
-using FFXIVClientStructs.FFXIV.Client.Graphics.Render;
-using FFXIVClientStructs.FFXIV.Client.Graphics.Scene;
-using FFXIVClientStructs.FFXIV.Client.System.Framework;
 using FFXIVClientStructs.FFXIV.Common.Math;
 using MirrorsEdge.XIVMirrors.Services;
 using System;

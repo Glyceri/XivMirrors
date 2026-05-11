@@ -6,27 +6,24 @@ namespace TheMirrorsEdge.Services.ChildServices;
 
 public class RenderService : IRenderService
 {
-    private readonly List<Action> _renderActions = [];
+    private readonly List<Action> _renderActions     = [];
+    private readonly List<Action> _preRenderActions  = [];
+    private readonly List<Action> _postRenderActions = [];
     
     private readonly IMirrorLog MirrorLog;
     
     public RenderService(IMirrorLog mirrorLog) 
         => MirrorLog = mirrorLog;
     
-    /// <summary>
-    /// You may only call this from the native render thread c:
-    /// </summary>
-    public void NotifyRenderAllowed()
+    private void CallActions(in List<Action> actions)
     {
-        MirrorLog.LogExtremelyVerbose("Just Notified Render Call.");
+        int renderSize = actions.Count;
         
-        int renderSize = _renderActions.Count;
-        
-        for (int i = 0; i < renderSize; i++)
+        for (int i = renderSize - 1; i >= 0; i--)
         {
             try
             {
-                _renderActions[i].Invoke();
+                actions[i].Invoke();
             }
             catch (Exception e)
             {
@@ -35,13 +32,45 @@ public class RenderService : IRenderService
         }
     }
     
-    public void RegisterRenderListener(Action renderAction)
+    /// <summary>
+    /// You may only call this from the native render thread c:
+    /// </summary>
+    public void NotifyRenderAllowed()
     {
-        _renderActions.Add(renderAction);
+        MirrorLog.LogExtremelyVerbose("Just Notified Render Call.");
+        
+        CallActions(in _renderActions);
     }
     
-    public void DeregisterRenderListener(Action renderAction)
+    public void NotifyPrePresent()
     {
-        _renderActions.Remove(renderAction);
+        MirrorLog.LogExtremelyVerbose("Just Notified Pre Present Call.");
+        
+        CallActions(in _preRenderActions);
     }
+    
+    public void NotifyPostPresent()
+    {
+        MirrorLog.LogExtremelyVerbose("Just Notified Post Present Call.");
+        
+        CallActions(in _postRenderActions);
+    }
+    
+    public void RegisterRenderListener(Action renderAction)
+        => _renderActions.Insert(0, renderAction);
+
+    public void DeregisterRenderListener(Action renderAction)
+        => _renderActions.Remove(renderAction);
+    
+    public void RegisterPrePresentListener(Action presentAction)
+        => _preRenderActions.Insert(0, presentAction);
+
+    public void DeregisterPrePresentListener(Action presentAction)
+        => _preRenderActions.Remove(presentAction);
+    
+    public void RegisterPostPresentListener(Action presentAction)
+        => _postRenderActions.Insert(0, presentAction);
+
+    public void DeregisterPostPresentListener(Action presentAction)
+        => _postRenderActions.Remove(presentAction);
 }

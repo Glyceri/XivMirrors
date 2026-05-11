@@ -3,17 +3,19 @@ using Dalamud.Utility.Signatures;
 using FFXIVClientStructs.FFXIV.Client.Game;
 using FFXIVClientStructs.FFXIV.Client.Game.Control;
 using SharpDX;
+using TheMirrorsEdge.Camera.CameraTypes;
 using TheMirrorsEdge.Memory;
 using TheMirrorsEdge.Resources.Structs;
 using TheMirrorsEdge.Services;
 using RenderCamera = FFXIVClientStructs.FFXIV.Client.Graphics.Render.Camera;
+using XIVCamera = FFXIVClientStructs.FFXIV.Client.Game.Camera;
 
 namespace TheMirrorsEdge.Hooking.Elements;
 
 public unsafe class CameraHook : HookableElement
 {
-    private delegate Camera* CameraManager_GetActiveCameraDelegate(CameraManager* cameraManager);
-    private delegate Camera* Camera_CtorDelegate(Camera* camera);
+    private delegate XIVCamera* CameraManager_GetActiveCameraDelegate(CameraManager* cameraManager);
+    private delegate XIVCamera* Camera_CtorDelegate(XIVCamera* camera);
 
     [Signature("E8 ?? ?? ?? ?? F7 80 84 01 00 00 FB FF FF FF", DetourName = nameof(CameraManager_GetActiveCameraDetour))]
     private readonly Hook<CameraManager_GetActiveCameraDelegate>? CameraManager_GetActiveCameraHook = null;
@@ -21,7 +23,7 @@ public unsafe class CameraHook : HookableElement
     [Signature("E8 ?? ?? ?? ?? EB 03 48 8B C6 45 33 C0 48 89 07", DetourName = nameof(Camera_CtorDetour))]
     private readonly Hook<Camera_CtorDelegate>? Camera_CtorHook = null;
 
-    //private MirrorCamera? OverrideCamera;
+    private MirrorCamera? OverrideCamera;
 
     private delegate nint GetEngineCoreSingletonDelegate();
 
@@ -61,7 +63,7 @@ public unsafe class CameraHook : HookableElement
             return;
         }
 
-        Camera* activeCamera = Control.Instance()->CameraManager.GetActiveCamera();
+        XIVCamera* activeCamera = Control.Instance()->CameraManager.GetActiveCamera();
 
         if (activeCamera == null)
         {
@@ -101,9 +103,9 @@ public unsafe class CameraHook : HookableElement
     public CameraBufferLayout GetCameraBufferLayout(Matrix modelMatrix)
         => new CameraBufferLayout(modelMatrix, ViewMatrix, ProjectionMatrix, NearPlane, FarPlane);
 
-    public GameAllocation<Camera> SpawnCamera(Camera* clone = null)
+    public GameAllocation<XIVCamera> SpawnCamera(XIVCamera* clone = null)
     {
-        GameAllocation<Camera> newCamera = new GameAllocation<Camera>();
+        GameAllocation<XIVCamera> newCamera = new GameAllocation<XIVCamera>();
 
         _ = Camera_CtorDetour(newCamera.Data);
 
@@ -115,28 +117,25 @@ public unsafe class CameraHook : HookableElement
         return newCamera;
     }
 
-    /*
+    
     public void SetOverride(MirrorCamera? overrideCamera)
     {
         OverrideCamera = overrideCamera;
     }
-    */
 
-    private Camera* CameraManager_GetActiveCameraDetour(CameraManager* cameraManager)
+    private XIVCamera* CameraManager_GetActiveCameraDetour(CameraManager* cameraManager)
     {
-        /*
         if (OverrideCamera != null)
         {
             return OverrideCamera.Camera;
         }    
-    */
 
         return CameraManager_GetActiveCameraHook!.Original(cameraManager);
     }
 
-    private Camera* Camera_CtorDetour(Camera* camera)
+    private XIVCamera* Camera_CtorDetour(XIVCamera* camera)
     {
-        MirrorServices.MirrorLog.Log("Camera constructor triggered");
+        MirrorServices.MirrorLog.Log("Camera Constructor Triggered.");
 
         return Camera_CtorHook!.Original(camera);
     }

@@ -14,14 +14,13 @@ public unsafe class MappedTexture : BasicTexture
 {
     public override Texture2D           Texture             { get; protected init; }
     public override ShaderResourceView  ShaderResourceView  { get; protected init; }
-
-    private readonly bool     isNativeBuffer;
+    
     private readonly bool     isNative;
     private readonly bool     isNativeSRV;
     private readonly Texture* nativeTexture;
     private readonly nint     nativeTextureNint;
 
-    public static MappedTexture CloneFrom(Texture2D texture2D, DirectXData directXData, bool isNative = false)
+    public static MappedTexture CloneFrom(Texture2D texture2D, DirectXData directXData)
     {
         Texture2DDescription baseDescription = texture2D.Description;
 
@@ -43,14 +42,14 @@ public unsafe class MappedTexture : BasicTexture
 
         directXData.Context.CopyResource(texture2D, newTexture);
 
-        return new MappedTexture(directXData, ref newTexture, isNative);
+        return new MappedTexture(directXData, ref newTexture);
     }
     
     public static MappedTexture CloneFrom(Texture* nativeTexture, DirectXData directXData)
     {
         Texture2D texture2D = new Texture2D((nint)nativeTexture->D3D11Texture2D);
         
-        return CloneFrom(texture2D, directXData, true);
+        return CloneFrom(texture2D, directXData);
     }
     
     /// <summary>
@@ -104,9 +103,8 @@ public unsafe class MappedTexture : BasicTexture
     /// </summary>
     /// <param name="directXData">The DirectXData object.</param>
     /// <param name="texture2D">The previously created Texture2D. [This object takes ownership]</param>
-    public MappedTexture(DirectXData directXData, ref Texture2D texture2D, bool isNative = false)
+    public MappedTexture(DirectXData directXData, ref Texture2D texture2D)
     {
-        isNativeBuffer      = isNative;
         isNativeSRV         = false;
         nativeTexture       = null;
 
@@ -122,10 +120,8 @@ public unsafe class MappedTexture : BasicTexture
     /// </summary>
     /// <param name="texture2D">The externally created Texture2D. [This object takes ownership]</param>
     /// <param name="shaderResourceView">The externally created ShaderResourceView. [This object takes ownership]</param>
-    public MappedTexture(ref Texture2D texture2D, ref ShaderResourceView shaderResourceView, bool isNativeTex2D = false, bool isNativeSRV = false)
+    public MappedTexture(ref Texture2D texture2D, ref ShaderResourceView shaderResourceView)
     {
-        isNative            = isNativeTex2D;
-        isNativeSRV         = isNativeSRV;
         nativeTexture       = null;
 
         Texture             = texture2D;
@@ -224,7 +220,7 @@ public unsafe class MappedTexture : BasicTexture
             ShaderResourceView?.Dispose();
         }
         
-        if (!isNative && !isNativeBuffer)
+        if (!isNative)
         {
             Texture?.Dispose();
         }

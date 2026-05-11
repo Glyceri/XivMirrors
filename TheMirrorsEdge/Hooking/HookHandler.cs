@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using TheMirrorsEdge.Hooking.Elements;
 using TheMirrorsEdge.Hooking.Interfaces;
 using TheMirrorsEdge.Services;
-using TheMirrorsEdge.Shaders;
 
 namespace TheMirrorsEdge.Hooking;
 
@@ -11,24 +10,19 @@ public class HookHandler : IDisposable
 {
     private readonly DalamudServices DalamudServices;
     private readonly MirrorServices  MirrorServices;
-    private readonly ShaderHandler   ShaderHandler;
     
     private readonly List<IHookableElement> HookableElements = [];
     
-    public IScreenHook? ScreenHook 
-        { get; private set; }
+    public IScreenHook ScreenHook 
+        { get; private set; } = null!;
     
-    public CameraHook? CameraHook
-        { get; private set; }
+    public CameraHook CameraHook
+        { get; private set; } = null!;
     
-    public CharacterManagerHook? CharacterManagerHook
-        { get; private set; }
-    
-    public HookHandler(DalamudServices dalamudServices, MirrorServices mirrorServices, ShaderHandler shaderHandler)
+    public HookHandler(DalamudServices dalamudServices, MirrorServices mirrorServices)
     {
         DalamudServices = dalamudServices;
         MirrorServices  = mirrorServices;
-        ShaderHandler   = shaderHandler;
         
         _Register();
         _Init();
@@ -36,9 +30,9 @@ public class HookHandler : IDisposable
     
     private void _Register()
     {
-        Register(CameraHook             = new CameraHook(DalamudServices, MirrorServices));
-        Register(CharacterManagerHook   = new CharacterManagerHook(DalamudServices, MirrorServices));
-        Register(ScreenHook             = new ScreenHook(DalamudServices, MirrorServices));
+        Register(CameraHook = new CameraHook(DalamudServices, MirrorServices));
+        Register(new CharacterManagerHook(DalamudServices, MirrorServices));
+        Register(ScreenHook = new ScreenHook(DalamudServices, MirrorServices));
         Register(new RenderHook(DalamudServices, MirrorServices));
     }
     

@@ -12,26 +12,43 @@ public unsafe class RenderHook : HookableElement
 {
     private readonly static MyRenderTargetManager* MirrorsRenderTargetManager = (MyRenderTargetManager*)RenderTargetManager.Instance();
     
+    private delegate int  OMPresentDelegate(nint swapChain, uint syncInterval, uint flags);
     private delegate void OMSetRenderTargetsDelegate(nint device, uint numViews, nint* renderTargetViews, nint depthStencilView);
     
     private readonly Hook<OMSetRenderTargetsDelegate>? OmSetRenderTargetsHook;
+    private readonly Hook<OMPresentDelegate>?          OMPresentHook;
     
     public RenderHook(DalamudServices dalamudServices, MirrorServices mirrorServices)
         : base(dalamudServices, mirrorServices)
     {
+        // [8]	    6ED3FAAD	(CDXGISwapChain::Present)
+        OMPresentHook         = GetHook<OMPresentDelegate>(MirrorServices.DirectXData.SwapChain.NativePointer, 0, 8, ProperPresentDetour);
+        
         // [33] 	6C5F23E8	(CContext::ID3D11DeviceContext2_OMSetRenderTargets_<1>)
         OmSetRenderTargetsHook  = GetHook<OMSetRenderTargetsDelegate>(MirrorServices.DirectXData.Context.NativePointer, 0, 33, OMSetRenderTargetsDetour);
     }
     
     public override void Dispose()
     {
-        OmSetRenderTargetsHook?.Disable();
+        OMPresentHook?.Dispose();
         OmSetRenderTargetsHook?.Dispose();
     }
     
     public override void Init()
     { 
+        OMPresentHook?.Enable();
         OmSetRenderTargetsHook?.Enable();
+    }
+    
+    private int ProperPresentDetour(nint swapChain, uint syncInterval, uint flags)
+    {
+        MirrorServices.RenderService.NotifyPrePresent();
+        
+        int returner = OMPresentHook!.OriginalDisposeSafe(swapChain, syncInterval, flags);   
+        
+        MirrorServices.RenderService.NotifyPostPresent();
+        
+        return returner;
     }
   
     private void OMSetRenderTargetsDetour(nint device, uint numViews, nint* renderTargetViews, nint depthStencilView)

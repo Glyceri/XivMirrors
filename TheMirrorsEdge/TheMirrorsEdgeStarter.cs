@@ -1,5 +1,7 @@
+using TheMirrorsEdge.Camera;
 using TheMirrorsEdge.Hooking;
 using TheMirrorsEdge.Services;
+using TheMirrorsEdge.Services.Screenshotting;
 using TheMirrorsEdge.Shaders;
 using TheMirrorsEdge.Windowing;
 
@@ -12,6 +14,7 @@ public class TheMirrorsEdgeStarter
     private readonly HookHandler     HookHandler;
     private readonly WindowHandler   WindowHandler;
     private readonly ShaderHandler   ShaderHandler;
+    private readonly CameraHandler   CameraHandler;
     
     public TheMirrorsEdgeStarter(DalamudServices dalamudServices)
     {
@@ -23,16 +26,20 @@ public class TheMirrorsEdgeStarter
         
         ShaderHandler   = new ShaderHandler(MirrorServices);
         
-        HookHandler     = new HookHandler(DalamudServices, MirrorServices, ShaderHandler);
+        HookHandler     = new HookHandler(DalamudServices, MirrorServices);
         
-        WindowHandler   = new WindowHandler(DalamudServices, MirrorServices, HookHandler, ShaderHandler);
+        CameraHandler   = new CameraHandler(DalamudServices, MirrorServices, HookHandler.CameraHook!);
+        
+        WindowHandler   = new WindowHandler(DalamudServices, MirrorServices, HookHandler, CameraHandler);
         
         MirrorServices.MirrorLog.LogInfo($"===Load Complete===");
     }
 
     public void Dispose()
     {
+        CameraHandler.Dispose();
         HookHandler.Dispose();
         WindowHandler.Dispose();
+        ShaderHandler.Dispose();
     }
 }

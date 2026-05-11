@@ -9,14 +9,15 @@ public class MirrorServices
 {
     private readonly DalamudServices  DalamudServices;
     
-    public readonly  Configuration    Configuration;
-    public readonly  IMirrorLog       MirrorLog;
-    public readonly  DirectXData      DirectXData;
-    public readonly  IUserList        UserList;
-    public readonly  IResourceLoader  ResourceLoader;
-    public readonly  IStatePreserver  StatePreserver;
-    public readonly  PrimitiveFactory PrimitiveFactory;
-    public readonly  IRenderService   RenderService;
+    public readonly  Configuration      Configuration;
+    public readonly  IMirrorLog         MirrorLog;
+    public readonly  DirectXData        DirectXData;
+    public readonly  IUserList          UserList;
+    public readonly  IResourceLoader    ResourceLoader;
+    public readonly  IStatePreserver    StatePreserver;
+    public readonly  PrimitiveFactory   PrimitiveFactory;
+    public readonly  IRenderService     RenderService;
+    public readonly  IScreenshotService ScreenshotService;
     
     public MirrorServices(DalamudServices dalamudServices)
     {
@@ -37,5 +38,7 @@ public class MirrorServices
         PrimitiveFactory    = new PrimitiveFactory();
         
         RenderService       = new RenderService(MirrorLog);
+        
+        ScreenshotService   = new ScreenshotService();
     }
 }

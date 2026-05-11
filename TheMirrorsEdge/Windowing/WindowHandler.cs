@@ -2,9 +2,9 @@ using System;
 using Dalamud.Bindings.ImGui;
 using Dalamud.Interface.Utility;
 using Dalamud.Interface.Windowing;
+using TheMirrorsEdge.Camera;
 using TheMirrorsEdge.Hooking;
 using TheMirrorsEdge.Services;
-using TheMirrorsEdge.Shaders;
 using TheMirrorsEdge.Windowing.Windows;
 
 namespace TheMirrorsEdge.Windowing;
@@ -17,9 +17,11 @@ public class WindowHandler : IDisposable
     private readonly MirrorServices  MirrorServices;
     private readonly WindowSystem    WindowSystem;
     private readonly HookHandler     HookHandler;
+    private readonly CameraHandler   CameraHandler;
     
-    public WindowHandler(DalamudServices dalamudServices, MirrorServices mirrorServices, HookHandler hookHandler, ShaderHandler shaderHandler)
+    public WindowHandler(DalamudServices dalamudServices, MirrorServices mirrorServices, HookHandler hookHandler, CameraHandler cameraHandler)
     {
+        CameraHandler   = cameraHandler;
         DalamudServices = dalamudServices;
         MirrorServices  = mirrorServices;
         HookHandler     = hookHandler;
@@ -32,7 +34,7 @@ public class WindowHandler : IDisposable
     
     private void _Register()
     {
-        RegisterWindow(new DebugWindow(this, DalamudServices, MirrorServices));     
+        RegisterWindow(new DebugWindow(this, DalamudServices, MirrorServices, CameraHandler));     
         RegisterWindow(new ConfigurationWindow(this, DalamudServices, MirrorServices));
     }
     

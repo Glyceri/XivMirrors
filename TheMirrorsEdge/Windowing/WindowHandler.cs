@@ -5,6 +5,7 @@ using Dalamud.Interface.Windowing;
 using TheMirrorsEdge.Camera;
 using TheMirrorsEdge.Hooking;
 using TheMirrorsEdge.Services;
+using TheMirrorsEdge.Shaders;
 using TheMirrorsEdge.Windowing.Windows;
 
 namespace TheMirrorsEdge.Windowing;
@@ -18,13 +19,15 @@ public class WindowHandler : IDisposable
     private readonly WindowSystem    WindowSystem;
     private readonly HookHandler     HookHandler;
     private readonly CameraHandler   CameraHandler;
+    private readonly ShaderHandler   ShaderHandler;
     
-    public WindowHandler(DalamudServices dalamudServices, MirrorServices mirrorServices, HookHandler hookHandler, CameraHandler cameraHandler)
+    public WindowHandler(DalamudServices dalamudServices, MirrorServices mirrorServices, ShaderHandler shaderHandler, HookHandler hookHandler, CameraHandler cameraHandler)
     {
         CameraHandler   = cameraHandler;
         DalamudServices = dalamudServices;
         MirrorServices  = mirrorServices;
         HookHandler     = hookHandler;
+        ShaderHandler   = shaderHandler;
         WindowSystem    = new WindowSystem("TheMirrorsEdge");
         
         DalamudServices.DalamudPlugin.UiBuilder.Draw += Draw;
@@ -34,7 +37,7 @@ public class WindowHandler : IDisposable
     
     private void _Register()
     {
-        RegisterWindow(new DebugWindow(this, DalamudServices, MirrorServices, CameraHandler));     
+        RegisterWindow(new DebugWindow(this, DalamudServices, MirrorServices, ShaderHandler, CameraHandler));     
         RegisterWindow(new ConfigurationWindow(this, DalamudServices, MirrorServices));
     }
     

@@ -76,7 +76,7 @@ public class RenderTexture : BasicTexture
             Height              = baseDescription.Height,
             MipLevels           = 1,
             ArraySize           = 1,
-            Format              = Format.R16G16B16A16_Float,
+            Format              = baseDescription.Format,
             SampleDescription   = new SampleDescription(1, 0),
             Usage               = ResourceUsage.Default,
             BindFlags           = BindFlags.RenderTarget | BindFlags.ShaderResource,

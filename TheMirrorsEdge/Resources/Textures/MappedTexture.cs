@@ -151,7 +151,6 @@ public unsafe class MappedTexture : BasicTexture
 
     public RenderTexture CreateRenderTarget(DirectXData data)
         => new RenderTexture(data, Texture);
-    
 
     private uint GetActualWidth()
     {

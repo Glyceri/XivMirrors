@@ -1,23 +1,24 @@
 using SharpDX.Direct3D11;
 using TheMirrorsEdge.Resources.Textures;
-using TheMirrorsEdge.Services.Screenshotting.Interfaces;
+using TheMirrorsEdge.Screenshotting.ScreenshotFiles.Base;
+using TheMirrorsEdge.Services;
+using TheMirrorsEdge.Shaders;
 
-namespace TheMirrorsEdge.Services.Screenshotting;
+namespace TheMirrorsEdge.Screenshotting.ScreenshotFiles;
 
-public class BackBufferScreenshotFile : IScreenshotFile
+public class BackBufferScreenshotFile : MappedScreenshotFile
 {
-    public MappedTexture? ScreenshotTexture { get; private set; }
-    public bool           ScreenshotReady   { get; private set; }
+    private readonly bool AsPrePresent = false;
     
-    private readonly DalamudServices DalamudServices;
-    private readonly MirrorServices  MirrorServices;
-    
-    public BackBufferScreenshotFile(DalamudServices dalamudServices, MirrorServices mirrorServices, bool asPrePresent = true)
+    public BackBufferScreenshotFile(MirrorServices mirrorServices, ShaderHandler shaderHandler, bool asPrePresent = true)
+        : base (mirrorServices, shaderHandler)
     {
-        DalamudServices = dalamudServices;
-        MirrorServices  = mirrorServices;
-        
-        if (asPrePresent)
+        AsPrePresent = asPrePresent;
+    }
+
+    protected override void OnUIHidden()
+    {
+        if (AsPrePresent)
         {
             MirrorServices.RenderService.RegisterPrePresentListener(PrePresent);
         }
@@ -26,7 +27,7 @@ public class BackBufferScreenshotFile : IScreenshotFile
             MirrorServices.RenderService.RegisterPostPresentListener(PrePresent);
         }
     }
-    
+
     private void PrePresent()
     {
         MirrorServices.RenderService.DeregisterPrePresentListener(PrePresent);
@@ -51,14 +52,11 @@ public class BackBufferScreenshotFile : IScreenshotFile
         
         ShaderResourceView srv      = new ShaderResourceView(MirrorServices.DirectXData.Device, backBufferCopy);
         
-        ScreenshotTexture           = new MappedTexture(ref backBufferCopy, ref srv);
-        ScreenshotReady             = true;
+        SetScreenshotFile(new MappedTexture(ref backBufferCopy, ref srv));
     }
     
-    public void Dispose()
+    protected override void OnDispose()
     {
-        ScreenshotTexture?.Dispose();
-        
         MirrorServices.RenderService.DeregisterPostPresentListener(PrePresent);
         MirrorServices.RenderService.DeregisterPrePresentListener(PrePresent);
     }

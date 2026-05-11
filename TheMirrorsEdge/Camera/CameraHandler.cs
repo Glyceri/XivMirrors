@@ -4,6 +4,7 @@ using TheMirrorsEdge.Camera.CameraTypes;
 using TheMirrorsEdge.Memory;
 using TheMirrorsEdge.Services;
 using FFXIVClientStructs.FFXIV.Client.Game.Control;
+using TheMirrorsEdge.Camera.Enums;
 using TheMirrorsEdge.Hooking.Elements;
 using XIVCamera = FFXIVClientStructs.FFXIV.Client.Game.Camera;
 
@@ -13,8 +14,12 @@ public unsafe class CameraHandler : IDisposable
 {
     private readonly List<BaseCamera> _cameras = new List<BaseCamera>();
 
-    public NativeCamera? GameCamera { get; private set; }
-
+    public NativeCamera? GameCamera      { get; private set; }
+    public NativeCamera? IdleCamera      { get; private set; }
+    public NativeCamera? LobbyCamera     { get; private set; }
+    public NativeCamera? SpectatorCamera { get; private set; }
+    public NativeCamera? AimingCamera    { get; private set; }
+    
     private readonly DalamudServices    DalamudServices;
     private readonly MirrorServices     MirrorServices;
     private readonly CameraHook         CameraHook;
@@ -45,6 +50,20 @@ public unsafe class CameraHandler : IDisposable
         _cameras.Add(camera);
     }
 
+    private NativeCamera? RegisterNativeCamera(XIVCamera* camera, NativeCameraType nativeCameraType)
+    {
+        if (camera == null)
+        {
+            return null;
+        }
+
+        NativeCamera nativeCamera = new NativeCamera(camera, nativeCameraType);
+        
+        RegisterNewCamera(nativeCamera);
+        
+        return nativeCamera;
+    }
+    
     public void PrepareCameraList()
     {
         MirrorServices.MirrorLog.Log("Preparing Camera List");
@@ -60,18 +79,11 @@ public unsafe class CameraHandler : IDisposable
             return;
         }
 
-        XIVCamera* camera = cameraManager->Camera;
-        
-        if (camera == null)
-        {
-            return;
-        }
-
-        NativeCamera nativeCamera = new NativeCamera(camera);
-
-        RegisterNewCamera(nativeCamera);
-
-        GameCamera = nativeCamera;
+        GameCamera      = RegisterNativeCamera(cameraManager->Camera,                      NativeCameraType.World);
+        IdleCamera      = RegisterNativeCamera((XIVCamera*)cameraManager->LowCutCamera,    NativeCameraType.Idle);
+        LobbyCamera     = RegisterNativeCamera((XIVCamera*)cameraManager->LobbyCamera,     NativeCameraType.Menu);
+        SpectatorCamera = RegisterNativeCamera((XIVCamera*)cameraManager->SpectatorCamera, NativeCameraType.Spectator);
+        AimingCamera    = RegisterNativeCamera((XIVCamera*)cameraManager->AimingCamera,    NativeCameraType.Aiming);
     }
 
     public void SetActiveCamera(BaseCamera? camera)
@@ -92,7 +104,7 @@ public unsafe class CameraHandler : IDisposable
             return;
         }
 
-        cameraManager->Cameras[0] = &camera.Camera->SceneCamera;
+        //cameraManager->Cameras[0] = &camera.Camera->SceneCamera;
 
         if (camera is MirrorCamera mirrorCamera)
         {

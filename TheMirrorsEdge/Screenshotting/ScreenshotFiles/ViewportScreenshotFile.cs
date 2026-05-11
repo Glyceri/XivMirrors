@@ -6,45 +6,34 @@ using Dalamud.Interface.Textures;
 using Dalamud.Interface.Textures.TextureWraps;
 using SharpDX.Direct3D11;
 using TheMirrorsEdge.Resources.Textures;
-using TheMirrorsEdge.Services.Screenshotting.Interfaces;
+using TheMirrorsEdge.Screenshotting.ScreenshotFiles.Base;
+using TheMirrorsEdge.Services;
+using TheMirrorsEdge.Shaders;
 
-namespace TheMirrorsEdge.Services.Screenshotting;
+namespace TheMirrorsEdge.Screenshotting.ScreenshotFiles;
 
-public class ViewportScreenshotFile : IScreenshotFile
+public class ViewportScreenshotFile : MappedScreenshotFile
 {
-    public MappedTexture? ScreenshotTexture 
-        { get; private set; } = null;
-    
-    public bool ScreenshotReady 
-        { get; private set; } = false;
-    
-    private readonly MirrorServices             MirrorServices;
     private readonly DalamudServices            DalamudServices;
     private readonly CancellationTokenSource    CancellationTokenSource;
     
-    private Task<IDalamudTextureWrap>? TextureWrapTask;
-    private IDalamudTextureWrap?       TextureWrap;
+    private Task<IDalamudTextureWrap>?          TextureWrapTask;
+    private IDalamudTextureWrap?                TextureWrap;
     
-    private static readonly ImGuiViewportTextureArgs TextureArguments = new ImGuiViewportTextureArgs()
-    {
-        AutoUpdate              = true,
-        KeepTransparency        = false,
-        TakeBeforeImGuiRender   = true,
-        ViewportId              = ImGui.GetMainViewport().ID,
-    };
-    
-    public ViewportScreenshotFile(DalamudServices dalamudServices, MirrorServices mirrorServices)
+    public ViewportScreenshotFile(MirrorServices mirrorServices, ShaderHandler shaderHandler, DalamudServices dalamudServices)
+        : base (mirrorServices, shaderHandler)
     { 
+        DalamudServices         = dalamudServices;
         CancellationTokenSource = new CancellationTokenSource();
-        
-        MirrorServices  = mirrorServices;
-        DalamudServices = dalamudServices;
+    }
+
+    protected override void OnUIHidden()
+    {
+        TextureWrapTask = CreateTextureWrap();
         
         MirrorServices.RenderService.RegisterPrePresentListener(PrePresent);
-        
-        TextureWrapTask = CreateTextureWrap();
     }
-    
+
     private Task<IDalamudTextureWrap> CreateTextureWrap()
     {
         MirrorServices.MirrorLog.Log("Created Dalamud Viewport Texture Wrap.");
@@ -84,8 +73,7 @@ public class ViewportScreenshotFile : IScreenshotFile
             
             if (texture2D != null)
             {
-                ScreenshotTexture = new MappedTexture(ref texture2D, ref shaderResourceView);
-                ScreenshotReady   = true;
+                SetScreenshotFile(new MappedTexture(ref texture2D, ref shaderResourceView));
             }
         }
         catch(Exception e)
@@ -99,7 +87,7 @@ public class ViewportScreenshotFile : IScreenshotFile
         MirrorServices.RenderService.DeregisterPrePresentListener(PrePresent);
     }
     
-    public void Dispose()
+    protected override void OnDispose()
     {
         CancellationTokenSource.Cancel();
         CancellationTokenSource.Dispose();
@@ -108,7 +96,5 @@ public class ViewportScreenshotFile : IScreenshotFile
         TextureWrapTask?.Dispose();
         
         MirrorServices.RenderService.DeregisterPrePresentListener(PrePresent);
-        
-        ScreenshotTexture?.Dispose();
     }
 }

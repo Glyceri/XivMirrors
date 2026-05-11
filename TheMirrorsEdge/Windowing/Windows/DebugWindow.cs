@@ -3,9 +3,10 @@ using System.Numerics;
 using Dalamud.Bindings.ImGui;
 using TheMirrorsEdge.Camera;
 using TheMirrorsEdge.Camera.CameraTypes;
+using TheMirrorsEdge.Screenshotting.ScreenshotTypes;
 using TheMirrorsEdge.Services;
 using TheMirrorsEdge.Services.Screenshotting.Interfaces;
-using TheMirrorsEdge.Services.Screenshotting.ScreenshotTypes;
+using TheMirrorsEdge.Shaders;
 
 namespace TheMirrorsEdge.Windowing.Windows;
 
@@ -18,15 +19,17 @@ public class DebugWindow : MirrorWindow
     private ulong _drawCount = 0;
     
     private readonly CameraHandler CameraHandler;
+    private readonly ShaderHandler ShaderHandler;
     
     private List<IScreenshot> Screenshots = [];
     
     private IScreenshot? ActiveScreenshot = null;
     
-    public DebugWindow(WindowHandler windowHandler, DalamudServices dalamudServices, MirrorServices mirrorServices, CameraHandler cameraHandler) 
+    public DebugWindow(WindowHandler windowHandler, DalamudServices dalamudServices, MirrorServices mirrorServices, ShaderHandler shaderHandler, CameraHandler cameraHandler) 
         : base(windowHandler, dalamudServices, mirrorServices, "DebugWindow") 
     {
         CameraHandler = cameraHandler;
+        ShaderHandler = shaderHandler;
         
         MirrorServices.RenderService.RegisterRenderListener(OnRender);
         
@@ -53,7 +56,7 @@ public class DebugWindow : MirrorWindow
         
         if (ImGui.Button("Take Screenshot"))
         {
-            Screenshots.Add(new BackBufferScreenshot(DalamudServices, MirrorServices));
+            Screenshots.Add(new BackBufferScreenshot(DalamudServices, MirrorServices, ShaderHandler));
         }
         
         int sIndex = 0;

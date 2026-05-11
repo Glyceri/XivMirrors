@@ -102,6 +102,7 @@ public class ConfigurationWindow : MirrorWindow
         {
             return;
         }
+        
             
         ErrorMessage  = MirrorServices.PathService.GetErrorMessage(MirrorServices.PathService.TrySetNewPluginPath(NewPathToSave));
         NewPathToSave = null;

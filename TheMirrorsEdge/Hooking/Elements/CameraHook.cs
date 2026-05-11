@@ -12,6 +12,10 @@ using XIVCamera = FFXIVClientStructs.FFXIV.Client.Game.Camera;
 
 namespace TheMirrorsEdge.Hooking.Elements;
 
+// https://github.com/Etheirys/Brio/blob/5dd67b887a2fcf199628d4b793c4e8ef4dcd46f6/Brio/Game/Camera/CameraService.cs#L21
+
+// DO it like this dumbass
+
 public unsafe class CameraHook : HookableElement
 {
     private delegate XIVCamera* CameraManager_GetActiveCameraDelegate(CameraManager* cameraManager);

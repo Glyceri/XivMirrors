@@ -30,7 +30,7 @@ public class TheMirrorsEdgeStarter
         
         CameraHandler   = new CameraHandler(DalamudServices, MirrorServices, HookHandler.CameraHook!);
         
-        WindowHandler   = new WindowHandler(DalamudServices, MirrorServices, HookHandler, CameraHandler);
+        WindowHandler   = new WindowHandler(DalamudServices, MirrorServices, ShaderHandler, HookHandler, CameraHandler);
         
         MirrorServices.MirrorLog.LogInfo($"===Load Complete===");
     }

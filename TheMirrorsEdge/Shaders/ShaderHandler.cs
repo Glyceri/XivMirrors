@@ -1,9 +1,7 @@
 using System;
 using MirrorsEdge.XIVMirrors.shaders.ShaderTypes;
 using SharpDX.Direct3D11;
-using TheMirrorsEdge.Memory;
 using TheMirrorsEdge.Services;
-using TheMirrorsEdge.Services.ChildServices;
 
 namespace TheMirrorsEdge.Shaders;
 
@@ -20,7 +18,7 @@ public class ShaderHandler : IDisposable
     public readonly  Shader                 ShadedModelShader;
 
     public readonly ShaderFactory Factory;
-
+    
     public ShaderHandler(MirrorServices mirrorServices)
     {
         MirrorServices          = mirrorServices;

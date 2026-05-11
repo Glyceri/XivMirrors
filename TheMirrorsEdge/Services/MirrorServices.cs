@@ -20,6 +20,7 @@ public class MirrorServices
     public readonly  PrimitiveFactory   PrimitiveFactory;
     public readonly  IRenderService     RenderService;
     public readonly  IScreenshotService ScreenshotService;
+    public readonly  IUIHidingService   UIHidingService;
     
     public MirrorServices(DalamudServices dalamudServices)
     {
@@ -46,5 +47,7 @@ public class MirrorServices
         RenderService       = new RenderService(MirrorLog);
         
         ScreenshotService   = new ScreenshotService();
+        
+        UIHidingService     = new UIHidingService(MirrorLog);
     }
 }

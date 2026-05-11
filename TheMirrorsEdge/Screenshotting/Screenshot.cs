@@ -1,7 +1,7 @@
 using System;
 using TheMirrorsEdge.Services.Screenshotting.Interfaces;
 
-namespace TheMirrorsEdge.Services.Screenshotting;
+namespace TheMirrorsEdge.Screenshotting;
 
 public abstract class Screenshot : IScreenshot
 {

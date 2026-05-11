@@ -12,6 +12,8 @@ public class MirrorServices
     public readonly  Configuration      Configuration;
     public readonly  IMirrorLog         MirrorLog;
     public readonly  DirectXData        DirectXData;
+    public readonly  IFileDialogService FileDialogService;
+    public readonly  IPathService       PathService;
     public readonly  IUserList          UserList;
     public readonly  IResourceLoader    ResourceLoader;
     public readonly  IStatePreserver    StatePreserver;
@@ -28,6 +30,10 @@ public class MirrorServices
         MirrorLog           = new MirrorLog(DalamudServices.PluginLog, Configuration);
         
         DirectXData         = new DirectXData();
+        
+        FileDialogService   = new FileDialogService();
+        
+        PathService         = new PathService(dalamudServices, MirrorLog, Configuration);
         
         UserList            = new UserList();
         

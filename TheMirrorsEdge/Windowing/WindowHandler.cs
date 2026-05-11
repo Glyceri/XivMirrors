@@ -51,6 +51,8 @@ public class WindowHandler : IDisposable
         
         MirrorServices.MirrorLog.LogExtremelyVerbose("--- POST IMGUI DRAW ---");
         
+        MirrorServices.FileDialogService.Draw();
+        
         WindowSystem.Draw();
     }
     

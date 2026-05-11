@@ -5,10 +5,11 @@ namespace TheMirrorsEdge.Services.Interfaces;
 public interface IMirrorLog
 {
     void Log(object? message);
-    void LogInfo(object? obj);
-    void LogWarning(object? obj);
-    void LogFatal(object? obj);
-    void LogVerbose(object? obj);
-    void LogError(Exception e, object? obj);
+    void LogInfo(object? message);
+    void LogWarning(object? message);
+    void LogFatal(object? message);
+    void LogVerbose(object? message);
+    void LogExtremelyVerbose(object? message);
+    void LogError(Exception e, object? message);
     void LogException(Exception e);
 }

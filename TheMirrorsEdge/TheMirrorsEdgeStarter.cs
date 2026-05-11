@@ -26,6 +26,8 @@ public class TheMirrorsEdgeStarter
         HookHandler     = new HookHandler(DalamudServices, MirrorServices, ShaderHandler);
         
         WindowHandler   = new WindowHandler(DalamudServices, MirrorServices, HookHandler, ShaderHandler);
+        
+        MirrorServices.MirrorLog.LogInfo($"===Load Complete===");
     }
 
     public void Dispose()

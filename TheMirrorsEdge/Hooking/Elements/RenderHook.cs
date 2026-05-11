@@ -1,331 +1,39 @@
 using System;
-using System.Collections.Generic;
-using System.Threading;
 using Dalamud.Hooking;
-using Dalamud.Interface.Textures.TextureWraps;
-using Dalamud.Utility.Signatures;
 using FFXIVClientStructs.FFXIV.Client.Graphics.Kernel;
 using FFXIVClientStructs.FFXIV.Client.Graphics.Render;
-using Lumina.Excel.Sheets;
-using SharpDX;
-using SharpDX.Direct3D;
 using SharpDX.Direct3D11;
-using SharpDX.DXGI;
-using SharpDX.Mathematics.Interop;
 using TheMirrorsEdge.CSClone;
-using TheMirrorsEdge.Hooking.Interfaces;
-using TheMirrorsEdge.Resources;
-using TheMirrorsEdge.Resources.Buffers;
-using TheMirrorsEdge.Resources.Structs;
-using TheMirrorsEdge.Resources.Textures;
 using TheMirrorsEdge.Services;
-using TheMirrorsEdge.Shaders;
-using Buffer = System.Buffer;
-using PixelShader = SharpDX.Direct3D11.PixelShader;
-using VertexShader = SharpDX.Direct3D11.VertexShader;
-using PrimitiveDeclaration = (TheMirrorsEdge.Resources.Structs.Vertex[] vertices, ushort[] indices);
 
 namespace TheMirrorsEdge.Hooking.Elements;
 
 public unsafe class RenderHook : HookableElement
 {
-    private delegate int  OMPresentDelegate(nint swapChain, uint syncInterval, uint flags);
+    private readonly static MyRenderTargetManager* MirrorsRenderTargetManager = (MyRenderTargetManager*)RenderTargetManager.Instance();
+    
     private delegate void OMSetRenderTargetsDelegate(nint device, uint numViews, nint* renderTargetViews, nint depthStencilView);
     
-    private delegate void OMDrawIndexed(nint context, uint indexCount, uint startIndexLocation, int baseVertexLocation);
-    private delegate void OMDraw(nint context, uint vertexCount, uint startVertexLocation);
-    private delegate void OMDrawIndexedInstanced(nint context, uint indexCountPerInstance, uint instanceCount, uint startIndexLocation, int baseVertexLocation, uint startInstanceLocation);
-    private delegate void OMDrawInstanced(nint context, uint vertexCountPerInstance, uint instanceCount, uint startVertexLocation, uint startInstanceLocation);
-    private delegate void OMDrawAuto(nint context);
-    private delegate void OMDrawIndexedInstancedIndirect(nint context, nint bufferForArgs, uint alignedByteOffsetForArgs);
-    private delegate void OMDrawInstancedIndirect(nint context, nint bufferForArgs, uint alignedByteOffsetForArgs);
-    private delegate int  OMFinishCommandList(nint context, byte restoreContext, nint* ppCommandList);
-    
-    private delegate nint DrawGBuffersDelegate(nint a1, nint a2);
-    
-    private readonly Hook<OMDrawIndexed>?                   OMDrawIndexedHook;
-    private readonly Hook<OMDraw>?                          OMDrawHook;
-    private readonly Hook<OMDrawIndexedInstanced>?          OMDrawIndexedInstancedHook;
-    private readonly Hook<OMDrawInstanced>?                 OMDrawInstancedHook;
-    private readonly Hook<OMDrawAuto>?                      OMDrawAutoHook;
-    private readonly Hook<OMDrawIndexedInstancedIndirect>?  OMDrawIndexedInstancedIndirectHook;
-    private readonly Hook<OMDrawInstancedIndirect>?         OMDrawInstancedIndirectHook;
-    private readonly Hook<OMFinishCommandList>?             OMFinishCommandListHook;
-    
-    [Signature("48 8B C4 48 89 50 ?? 53 56", DetourName = nameof(DrawGBuffersDetour))]
-    private readonly Hook<DrawGBuffersDelegate>?            DrawGBuffersHook;
-    
-    private int OMDrawIndexedHookCount = 0;
-    private int OMDrawHookCount = 0;
-    private int OMDrawIndexedInstancedHookCount = 0;
-    private int OMDrawInstancedHookCount = 0;
-    private int OMDrawAutoHookCount = 0;
-    private int OMDrawIndexedInstancedIndirectHookCount = 0;
-    private int OMDrawInstancedIndirectHookCount = 0;
-    
-    private bool allowCount = true;
-    
-    private readonly Hook<OMPresentDelegate>?          OMPresentHook;
     private readonly Hook<OMSetRenderTargetsDelegate>? OmSetRenderTargetsHook;
     
-    private readonly IScreenHook ScreenHook;
-    
-    private uint ScreenWidth;
-    private uint ScreenHeight;
-    
-    private Dictionary<(nint, nint), int> PairCount =  new Dictionary<(nint, nint), int>();
-    
-    private readonly Lock LockObject = new Lock();
-    
-    public readonly Dictionary<nint, RenderTargetView> RenderTargetViews = new Dictionary<nint, RenderTargetView>();
-    
-    private nint lastSwapChain  = nint.Zero;
-    private nint lastBackBuffer = nint.Zero;
-    
-    private readonly BasicModel CubeModel;
-    private readonly CameraBuffer CameraBuffer;
-    
-    private delegate nint PushbackUIDelegate(nint a1, char a2);
-    
-    [Signature("E8 ?? ?? ?? ?? EB ?? E8 ?? ?? ?? ?? 4C 8D 5C 24 50", DetourName = nameof(PushbackUIDetour))]
-    private Hook<PushbackUIDelegate>? PushbackUIHook = null;
-    
-    public MappedTexture? BeforeUITexture;
-    public DepthTexture? BeforeUIDepthTexture;
-    
-    ulong presentCount = 0;
-    
-    Dictionary<nint, ulong> uniqueRtv = new Dictionary<IntPtr, ulong>();
-    Dictionary<nint, ulong> uniqueRtvDsv = new Dictionary<IntPtr, ulong>();
-    
-    public List<MappedTexture> MappedTextures = [];
-    
-    nint lookupRTV = nint.Zero;
-    
-    private readonly RasterizerState   RasterizerState;
-    private readonly DepthStencilState DepthStencilState;
-    
-    private readonly IDalamudTextureWrap TextureWrap;
-    private readonly ShaderResourceView  TextureResourceView;
-    
-    private readonly ShaderHandler ShaderHandler;
-    private readonly CameraHook CameraHook;
-    
-    public RenderHook(DalamudServices dalamudServices, MirrorServices mirrorServices, IScreenHook screenHook, CameraHook cameraHook, ShaderHandler shaderHandler)
+    public RenderHook(DalamudServices dalamudServices, MirrorServices mirrorServices)
         : base(dalamudServices, mirrorServices)
     {
-        CameraHook = cameraHook;
-        ShaderHandler = shaderHandler;
-        
-        PrimitiveDeclaration cube = mirrorServices.PrimitiveFactory.Cube();
-
-        CubeModel       = new BasicModel(MirrorServices.DirectXData, ref cube);
-        CameraBuffer    = new CameraBuffer(MirrorServices.DirectXData);
-        
-        ScreenHook = screenHook;
-        
-        ScreenHook.RegisterScreenSizeChangeCallback(OnScreenSizeChanged);
-        
+        // [33] 	6C5F23E8	(CContext::ID3D11DeviceContext2_OMSetRenderTargets_<1>)
         OmSetRenderTargetsHook  = GetHook<OMSetRenderTargetsDelegate>(MirrorServices.DirectXData.Context.NativePointer, 0, 33, OMSetRenderTargetsDetour);
-
-        OMPresentHook           = GetHook<OMPresentDelegate>(MirrorServices.DirectXData.SwapChain.NativePointer, 0, 8, OMPresentDetour);
-        
-        OMDrawIndexedHook                   = GetHook<OMDrawIndexed>(MirrorServices.DirectXData.Context.NativePointer, 0, 12, OMDrawIndexedDetour);
-        OMDrawHook                          = GetHook<OMDraw>(MirrorServices.DirectXData.Context.NativePointer, 0, 13, OMDrawDetour);
-        OMDrawIndexedInstancedHook          = GetHook<OMDrawIndexedInstanced>(MirrorServices.DirectXData.Context.NativePointer, 0, 20, OMDrawIndexedInstancedDetour);
-        OMDrawInstancedHook                 = GetHook<OMDrawInstanced>(MirrorServices.DirectXData.Context.NativePointer, 0, 21, OMDrawInstancedDetour);
-        OMDrawAutoHook                      = GetHook<OMDrawAuto>(MirrorServices.DirectXData.Context.NativePointer, 0, 38, OMDrawAutoDetour);
-        OMDrawIndexedInstancedIndirectHook  = GetHook<OMDrawIndexedInstancedIndirect>(MirrorServices.DirectXData.Context.NativePointer, 0, 39, OMDrawIndexedInstancedIndirectDetour);
-        OMDrawInstancedIndirectHook         = GetHook<OMDrawInstancedIndirect>(MirrorServices.DirectXData.Context.NativePointer, 0, 40, OMDrawInstancedIndirectDetour);
-        
-        
-        
-        OMFinishCommandListHook         = GetHook<OMFinishCommandList>(MirrorServices.DirectXData.Context.NativePointer, 0, 114, OMFinishCommandListDetour);
-        
-        TextureWrap     = DalamudServices.TextureProvider.GetFromFile("/home/amber/Git/XivPlugins/MirrorsEdge/MirrorsEdge/XIVMirrors/Shaders/Files/nightsky.png").RentAsync().Result;
-        TextureResourceView = new ShaderResourceView((nint)TextureWrap.Handle.Handle);
-        
-        RasterizerStateDescription rsDesc = new RasterizerStateDescription
-        {
-            FillMode = FillMode.Solid,
-            CullMode = CullMode.Back,
-            IsFrontCounterClockwise = true // flip front face
-        };
-
-        RasterizerState = new RasterizerState(MirrorServices.DirectXData.Device, rsDesc);
-
-        DepthStencilStateDescription dsDesc = new DepthStencilStateDescription
-        {
-            IsDepthEnabled  = true,
-            DepthWriteMask  = DepthWriteMask.All,
-            DepthComparison = Comparison.Greater
-        };
-
-        DepthStencilState = new DepthStencilState(MirrorServices.DirectXData.Device, dsDesc);
     }
     
     public override void Dispose()
     {
-        ScreenHook.DeregisterScreenSizeChangeCallback(OnScreenSizeChanged);
-        
-        DrawGBuffersHook?.Dispose();
-        
-        OMDrawIndexedHook?.Dispose();
-        OMDrawHook?.Dispose();
-        OMDrawIndexedInstancedHook?.Dispose();
-        OMDrawInstancedHook?.Dispose();
-        OMDrawAutoHook?.Dispose();
-        OMDrawIndexedInstancedIndirectHook?.Dispose();
-        OMDrawInstancedIndirectHook?.Dispose();
-        OMFinishCommandListHook?.Dispose();
-        
-        PushbackUIHook?.Disable();
-        PushbackUIHook?.Dispose();
-        
         OmSetRenderTargetsHook?.Disable();
         OmSetRenderTargetsHook?.Dispose();
-        
-        OMPresentHook?.Disable();
-        OMPresentHook?.Dispose();
-        
-        CubeModel?.Dispose();
-        CameraBuffer?.Dispose();
-        
-        DepthStencilState?.Dispose();
-        RasterizerState?.Dispose();
-        
-        TextureWrap?.Dispose();
-        TextureResourceView?.Dispose();
     }
     
     public override void Init()
     { 
-        DrawGBuffersHook.Enable();
-        
-        OMDrawIndexedHook?.Enable();
-        OMDrawHook?.Enable();
-        OMDrawIndexedInstancedHook?.Enable();
-        OMDrawInstancedHook?.Enable();
-        OMDrawAutoHook?.Enable();
-        OMDrawIndexedInstancedIndirectHook?.Enable();
-        OMDrawInstancedIndirectHook?.Enable();
-        OMFinishCommandListHook?.Enable();
-        
         OmSetRenderTargetsHook?.Enable();
-        OMPresentHook?.Enable();
-        PushbackUIHook?.Enable();
     }
-    
-    bool firstThisFrame = false;
-
-    int countThisFrame = 0;
-    
-    private nint DrawGBuffersDetour(nint a1, nint a2)
-    {
-        MirrorServices.MirrorLog.LogVerbose("DrawGBuffersDetour");
-        
-        nint returner = DrawGBuffersHook!.OriginalDisposeSafe(a1, a2);
-        
-        MirrorServices.MirrorLog.LogVerbose("DrawGBuffersDetour END");
-        
-        return returner;
-    }
-    
-    private int OMFinishCommandListDetour(nint context, byte restoreContext, nint* ppCommandList)
-    {
-        MirrorServices.MirrorLog.LogVerbose("ON FINNISH COMMAND LIST");
-        
-        return OMFinishCommandListHook!.OriginalDisposeSafe(context, restoreContext, ppCommandList);
-    }
-    
-    private void OMDrawIndexedDetour(nint context, uint indexCount, uint startIndexLocation, int baseVertexLocation)
-    {
-        if (allowCount) OMDrawIndexedHookCount++;
-        
-        //uint min = Math.Min(indexCount, 200);
-        
-        OMDrawIndexedHook!.OriginalDisposeSafe(context, indexCount, startIndexLocation, baseVertexLocation);
-    }
-
-    private void OMDrawDetour(nint context, uint vertexCount, uint startVertexLocation)
-    {
-        if (allowCount) OMDrawHookCount++;
-        
-        OMDrawHook!.OriginalDisposeSafe(context, vertexCount, startVertexLocation);
-    }
-
-    private void OMDrawIndexedInstancedDetour(nint context, uint indexCountPerInstance, uint instanceCount, uint startIndexLocation, int baseVertexLocation, uint startInstanceLocation)
-    {
-        if (allowCount) OMDrawIndexedInstancedHookCount++;
-        
-        OMDrawIndexedInstancedHook!.OriginalDisposeSafe(context, indexCountPerInstance, instanceCount, startIndexLocation, baseVertexLocation, startInstanceLocation);
-    }
-
-    private void OMDrawInstancedDetour(nint context, uint vertexCountPerInstance, uint instanceCount, uint startVertexLocation, uint startInstanceLocation)
-    {
-        if (allowCount) OMDrawInstancedHookCount++;
-        
-        OMDrawInstancedHook!.OriginalDisposeSafe(context, vertexCountPerInstance, instanceCount, startVertexLocation, startInstanceLocation);
-    }
-
-    private void OMDrawAutoDetour(nint context)
-    {
-        if (allowCount) OMDrawAutoHookCount++;
-        
-        OMDrawAutoHook!.OriginalDisposeSafe(context);
-    }
-
-    private void OMDrawIndexedInstancedIndirectDetour(nint context, nint bufferForArgs, uint alignedByteOffsetForArgs)
-    {
-        if (allowCount) OMDrawIndexedInstancedIndirectHookCount++;
-        
-        OMDrawIndexedInstancedIndirectHook!.OriginalDisposeSafe(context, bufferForArgs, alignedByteOffsetForArgs);
-    }
-
-    private void OMDrawInstancedIndirectDetour(nint context, nint bufferForArgs, uint alignedByteOffsetForArgs)
-    {
-        if (allowCount) OMDrawInstancedIndirectHookCount++;
-        
-        OMDrawInstancedIndirectHook!.OriginalDisposeSafe(context, bufferForArgs, alignedByteOffsetForArgs);
-    }
-    
-    private nint PushbackUIDetour(nint a1, char a2)
-    {
-        //MirrorServices.MirrorLog.LogInfo("PUSHBACK UI");
-        
-        return PushbackUIHook!.OriginalDisposeSafe(a1, a2);
-    }
-    
-    private void OnScreenSizeChanged(uint newWidth, uint newHeight)
-    {
-        ScreenWidth  = newWidth;
-        ScreenHeight = newHeight;
-        
-        BeforeUITexture?.Dispose();
-        BeforeUITexture = null;
-        
-        CleanupOld();
-        
-        MirrorServices.MirrorLog.LogInfo($"Screen size changed: [{ScreenWidth}x{ScreenHeight}].");
-    }
-    
-    private void SetRenderTargetFor(nint renderTargetView, nint depthStencilView)
-    {
-        if (!RenderTargetViews.ContainsKey(renderTargetView))
-        {
-            RenderTargetView rtv = new RenderTargetView(renderTargetView);
-            
-            RenderTargetViews.Add(renderTargetView, rtv);
-        }
-        
-        PairCount.TryAdd((renderTargetView, depthStencilView), 0);
-        
-        PairCount[(renderTargetView, depthStencilView)]++;
-    }
-    
-    int toggleAmount = 0;
-    bool lastState = false;
-    
+  
     private void OMSetRenderTargetsDetour(nint device, uint numViews, nint* renderTargetViews, nint depthStencilView)
     {
         OmSetRenderTargetsHook!.Original(device, numViews, renderTargetViews, depthStencilView);
@@ -335,362 +43,100 @@ public unsafe class RenderHook : HookableElement
             return;
         }
         
-        
         if (depthStencilView == nint.Zero)
         {
             return;
         }
-        
-        if (numViews != 5)
-        {
-            return;
-        }
-        
-        allowCount = false;
-        
-        for (int i = 0; i < numViews; i++)
-        {
-            nint rtv = *(renderTargetViews + i);
-            
-            if (rtv != nint.Zero)
-            {
-                RenderTargetView rtvm = new RenderTargetView(rtv);
-            
-                Texture2D? texture2D = rtvm.Resource.QueryInterfaceOrNull<Texture2D>();
-            
-                if (texture2D != null)
-                {
-                    
-                    
-                    //allowCount |= ((nint)RenderTargetManager.Instance()->GBuffers[0].Value->D3D11Texture2D == texture2D.NativePointer);
-                    //allowCount |= ((nint)RenderTargetManager.Instance()->GBuffers[1].Value->D3D11Texture2D == texture2D.NativePointer);
-                    //allowCount |= ((nint)RenderTargetManager.Instance()->GBuffers[2].Value->D3D11Texture2D == texture2D.NativePointer);
-                    //allowCount |= ((nint)RenderTargetManager.Instance()->GBuffers[3].Value->D3D11Texture2D == texture2D.NativePointer);
-                    allowCount |= ((nint)RenderTargetManager.Instance()->GBuffers[4].Value->D3D11Texture2D == texture2D.NativePointer);
-                    
 
-                }
-            }
-            
-            if (allowCount )
-            {
-                MirrorServices.MirrorLog.LogVerbose(numViews);
-                
-                CubeModel.BindBuffer();
-                
-                CubeModel.Draw();
-                        
-            }
-            
-            if (!uniqueRtv.TryAdd(rtv, 1))
-            {
-                uniqueRtv[rtv]++;
-                
-                continue;
-            }
-
-           
-            
-            TryGetTexture2DDescFromView(rtv, depthStencilView);
-        }
-        
-        
-    }
-    
-    private int OMPresentDetour(nint swapChain, uint syncInterval, uint flags)
-    {
-        presentCount++;
-        
-        _ = uniqueRtv.TryGetValue(lookupRTV, out ulong count);
-        
-        firstThisFrame = false;
-        countThisFrame = 0;
-        
-        MirrorServices.MirrorLog.LogVerbose($"{OMDrawIndexedHook.Address}, {OMDrawIndexedHook.BackendName}");
-        
-        MirrorServices.MirrorLog.LogVerbose("TOGGLE AMOUNT: " + toggleAmount);
-        MirrorServices.MirrorLog.LogVerbose("OMDrawIndexedHookCount: " + OMDrawIndexedHookCount);
-        MirrorServices.MirrorLog.LogVerbose("OMDrawHookCount: " + OMDrawHookCount);
-        MirrorServices.MirrorLog.LogVerbose("OMDrawIndexedInstancedHookCount: " + OMDrawIndexedInstancedHookCount);
-        MirrorServices.MirrorLog.LogVerbose("OMDrawInstancedHookCount: " + OMDrawInstancedHookCount);
-        MirrorServices.MirrorLog.LogVerbose("OMDrawAutoHookCount: " + OMDrawAutoHookCount);
-        MirrorServices.MirrorLog.LogVerbose("OMDrawIndexedInstancedIndirectHookCount: " + OMDrawIndexedInstancedIndirectHookCount);
-        MirrorServices.MirrorLog.LogVerbose("OMDrawInstancedIndirectHookCount: " + OMDrawInstancedIndirectHookCount);
-        
-        toggleAmount = 0;
-        bufferBound = 0;
-        //MirrorServices.MirrorLog.LogVerbose($"OMPresentDetour: [{presentCount}] [{count}] [{uniqueRtvDsv.Count}] [{isSame}] [{uniqueRtv.Count}] [{MappedTextures.Count}].");
-        
-        foreach (MappedTexture mappedTexture in MappedTextures)
-        {
-            HandleMappedTexture(mappedTexture);
-        }
-        
-        int returner = OMPresentHook!.Original(swapChain, syncInterval, flags);
-        
-        isSame = false;
-        sameCounter = 0;
-        uniqueRtv.Clear();
-            
-        foreach (MappedTexture mappedTexture in MappedTextures)
-        {
-            mappedTexture.Dispose();
-        }
-        
-        MappedTextures.Clear();
-        
-        foreach (RenderTexture rTex in RenderTextures)
-        {
-            rTex.Dispose();
-        }
-        
-        RenderTextures.Clear();
-        
-        
-        OMDrawIndexedHookCount = 0;
-        OMDrawHookCount = 0;
-        OMDrawIndexedInstancedHookCount = 0;
-        OMDrawInstancedHookCount = 0;
-        OMDrawAutoHookCount = 0;
-        OMDrawIndexedInstancedIndirectHookCount = 0;
-        OMDrawInstancedIndirectHookCount = 0;
-
-        
-        return returner;
-    }
-    
-    private void CleanupOld()
-    {
-        MirrorServices.MirrorLog.LogVerbose("RTV DISPOSE");
-        
-        PairCount.Clear();
-        
-        foreach (var rtv in RenderTargetViews.Values)
-        {
-            rtv?.Dispose();
-        }
-        
-        RenderTargetViews.Clear();
-    }
-    
-    private bool isSame = false;
-    private int sameCounter = 0;
-    
-    private bool IsSame(nint texture, Texture* tex)
-    { 
-        if (tex == null)
-            return false;
-        return texture == (nint)tex->D3D11Texture2D;
-    }
-    
-    public readonly List<RenderTexture> RenderTextures = [];
-    
-    private void HandleForColour(MappedTexture mappedTexture, Vector4 colour)
-    {
-        RenderTexture rTex = mappedTexture.CreateRenderTarget(MirrorServices.DirectXData);
-        RenderTextures.Add(rTex);
-        
-        //MirrorServices.StatePreserver.PreserveState();
-        
-        ShaderHandler.ChannelMappedShader.Bind(mappedTexture, colour, rTex);
-        
-        ShaderHandler.ChannelMappedShader.Draw();
-        
-        ShaderHandler.ChannelMappedShader.UnbindTexture();
-    }
-    
-    private void HandleMappedTexture(MappedTexture mappedTexture)
-    {
-        HandleForColour(mappedTexture, new Vector4(1.0f, 0.0f, 0.0f, 0.0f));
-        HandleForColour(mappedTexture, new Vector4(0.0f, 1.0f, 0.0f, 0.0f));
-        HandleForColour(mappedTexture, new Vector4(0.0f, 0.0f, 1.0f, 0.0f));
-        HandleForColour(mappedTexture, new Vector4(0.0f, 0.0f, 0.0f, 1.0f));
-    }
-    
-    
-    private int bufferBound = 0;
-    
-    private unsafe bool TryGetTexture2DDescFromView(nint renderTargetView, nint depthStencilView)
-    {
-        if (renderTargetView == nint.Zero)
-        {
-            return false;
-        }
-        
-        if (depthStencilView == nint.Zero)
-        {
-            return false;
-        }
-        
-        MyRenderTargetManager* renderTargetManager = (MyRenderTargetManager*)RenderTargetManager.Instance();
-        
-        if (renderTargetManager == null)
-        {
-            return false;
-        }
-      
-
+        Texture2D? depthTexture;
         
         try
         {
-            DepthStencilView dsv = new DepthStencilView(depthStencilView);
-            RenderTargetView rtv = new RenderTargetView(renderTargetView);
+            DepthStencilView depthStencil = new DepthStencilView(depthStencilView);
             
-            Texture2D? texture2D = rtv.Resource.QueryInterfaceOrNull<Texture2D>();
-            
-            if (texture2D == null)
-            {
-                return false;
-            }
-            
-            //allowCount = ((nint)RenderTargetManager.Instance()->GBuffers[0].Value->D3D11Texture2D == texture2D.NativePointer);
-            
-            /*
-            if (IsSame(texture2D.NativePointer, renderTargetManager->BackBufferNoUI)) MirrorServices.MirrorLog.LogVerbose("Back Buffer No UI");
-            if (IsSame(texture2D.NativePointer, renderTargetManager->BackBufferNoUICopy2)) MirrorServices.MirrorLog.LogVerbose("BackBufferNoUICopy2");
-            if (IsSame(texture2D.NativePointer, renderTargetManager->BackBufferNoUICopy4)) MirrorServices.MirrorLog.LogVerbose("BackBufferNoUICopy4");
-            if (IsSame(texture2D.NativePointer, renderTargetManager->BackBufferNoUICopy5)) MirrorServices.MirrorLog.LogVerbose("BackBufferNoUICopy5");
-            if (IsSame(texture2D.NativePointer, renderTargetManager->BackBufferNoUICopy6)) MirrorServices.MirrorLog.LogVerbose("BackBufferNoUICopy6");
-            if (IsSame(texture2D.NativePointer, renderTargetManager->BackBufferNoUICopy7)) MirrorServices.MirrorLog.LogVerbose("BackBufferNoUICopy7");
-            if (IsSame(texture2D.NativePointer, renderTargetManager->BackBufferNoUICopy8)) MirrorServices.MirrorLog.LogVerbose("BackBufferNoUICopy8");
-            if (IsSame(texture2D.NativePointer, renderTargetManager->BackBufferNoUICopy9)) MirrorServices.MirrorLog.LogVerbose("BackBufferNoUICopy9");
-            if (IsSame(texture2D.NativePointer, renderTargetManager->BackBufferNoUICopy10)) MirrorServices.MirrorLog.LogVerbose("BackBufferNoUICopy10");
-            if (IsSame(texture2D.NativePointer, renderTargetManager->BackBufferNoUICopy11)) MirrorServices.MirrorLog.LogVerbose("BackBufferNoUICopy11");
-            */
-            
-            if (texture2D.Description.BindFlags.HasFlag(BindFlags.ShaderResource))
-            {
-                MappedTexture mappedTexture = new MappedTexture(MirrorServices.DirectXData, ref texture2D, true);
-                
-                MappedTextures.Add(mappedTexture);
-            }
-            
-            Texture2D? dsvTexture2D = dsv.Resource.QueryInterfaceOrNull<Texture2D>();
-            
-            if (dsvTexture2D == null)
-            {
-                return false;
-            }
-            
-            /*
-            if (IsSame(dsvTexture2D.NativePointer, renderTargetManager->DepthBufferNoTransparency)) MirrorServices.MirrorLog.LogVerbose("DepthBufferNoTransparency");
-            if (IsSame(dsvTexture2D.NativePointer, renderTargetManager->DepthBufferNoTransparencyCopy)) MirrorServices.MirrorLog.LogVerbose("DepthBufferNoTransparencyCopy");
-            if (IsSame(dsvTexture2D.NativePointer, renderTargetManager->DepthBufferNoTransparencyCopy2)) MirrorServices.MirrorLog.LogVerbose("DepthBufferNoTransparencyCopy2");
-            if (IsSame(dsvTexture2D.NativePointer, renderTargetManager->DepthBufferNoTransparencyCopy3)) MirrorServices.MirrorLog.LogVerbose("DepthBufferNoTransparencyCopy3");
-            if (IsSame(dsvTexture2D.NativePointer, renderTargetManager->DepthBufferNoTransparencyCopy4)) MirrorServices.MirrorLog.LogVerbose("DepthBufferNoTransparencyCopy4");
-            if (IsSame(dsvTexture2D.NativePointer, renderTargetManager->DepthBufferNoTransparencyCopy5)) MirrorServices.MirrorLog.LogVerbose("DepthBufferNoTransparencyCopy5");
-            if (IsSame(dsvTexture2D.NativePointer, renderTargetManager->DepthBufferNoTransparencyCopy6)) MirrorServices.MirrorLog.LogVerbose("DepthBufferNoTransparencyCopy6");
-            if (IsSame(dsvTexture2D.NativePointer, renderTargetManager->DepthBufferNoTransparencyCopy7)) MirrorServices.MirrorLog.LogVerbose("DepthBufferNoTransparencyCopy7");
-            if (IsSame(dsvTexture2D.NativePointer, renderTargetManager->DepthBufferNoTransparencyCopy9)) MirrorServices.MirrorLog.LogVerbose("DepthBufferNoTransparencyCopy9");
-            if (IsSame(dsvTexture2D.NativePointer, renderTargetManager->DepthBufferNoTransparencyCopy10)) MirrorServices.MirrorLog.LogVerbose("DepthBufferNoTransparencyCopy10");
-            if (IsSame(dsvTexture2D.NativePointer, renderTargetManager->DepthBufferNoTransparencyCopy11)) MirrorServices.MirrorLog.LogVerbose("DepthBufferNoTransparencyCopy11");
-            if (IsSame(dsvTexture2D.NativePointer, renderTargetManager->DepthBufferNoTransparencyCopy12)) MirrorServices.MirrorLog.LogVerbose("DepthBufferNoTransparencyCopy12");
-            */
-            
-            if ((nint)RenderTargetManager.Instance()->GBuffers[0].Value->D3D11Texture2D == texture2D.NativePointer)
-            {
-                bufferBound++;
-                
-                lookupRTV = renderTargetView;
-                
-                if (!uniqueRtvDsv.TryAdd(depthStencilView, 1))
-                {
-                    uniqueRtvDsv[depthStencilView]++;
-                }
-                
-
-                
-                if ((nint)renderTargetManager->DepthBufferNoTransparency->D3D11Texture2D == dsvTexture2D.NativePointer)
-                {
-                    isSame = true;
-                    sameCounter++;
-                    
-                    //RenderCube();
-                }
-                
-                MirrorServices.MirrorLog.LogVerbose(texture2D.NativePointer + $" [{MappedTextures.Count}].");
-            }
-            
-            
+            depthTexture = depthStencil.Resource.QueryInterface<Texture2D>();
         }
         catch(Exception e)
         {
             MirrorServices.MirrorLog.LogException(e);
+            
+            return;
         }
         
-        return true;
+        if (depthTexture == null)
+        {
+            return;
+        }
+        
+        for (int i = 0; i < numViews; i++)
+        {
+            nint renderTargetView = *(renderTargetViews + i);
+            
+            if (renderTargetView == nint.Zero)
+            {
+                break;
+            }
+
+            HandleRenderTargetView(renderTargetView, ref depthTexture);
+        }
     }
     
-    private void RenderCube()
+    private void HandleRenderTargetView(nint renderTargetView, ref Texture2D depthTexture)
     {
-        MirrorServices.StatePreserver.PreserveState();
-       
-        // TODO: RENDER CUBE HERE!
+        Texture2D? renderTexture;
         
-        ShaderHandler.ShadedModelShader.Bind();
-
-        CubeModel.BindBuffer();
-
-        // BIND TEXTURE
-        MirrorServices.DirectXData.Context.PixelShader.SetShaderResource(0, TextureResourceView);
-        // END BIND
+        try
+        {
+            RenderTargetView renderTarget = new RenderTargetView(renderTargetView);
+            
+            renderTexture = renderTarget.Resource.QueryInterfaceOrNull<Texture2D>();
+        }
+        catch(Exception e)
+        {
+            MirrorServices.MirrorLog.LogException(e);
+                        
+            return;
+        }
         
-        // BIND MATRIX
-        CameraBufferLayout cameraMatrix = CameraHook.GetCameraBufferLayout(Matrix.Identity);
+        if (renderTexture == null)
+        {
+            return;
+        }
 
-        CameraBuffer.UpdateConstantBuffer(ref cameraMatrix);
-
-        CameraBuffer.BindToVertexShader(0);
-        // END BIND
-        
-        BlendStateDescription blendDesc = new BlendStateDescription();
-
-        blendDesc.RenderTarget[0].IsBlendEnabled = false;
-        blendDesc.RenderTarget[0].RenderTargetWriteMask = ColorWriteMaskFlags.All;
-        
-        MirrorServices.DirectXData.Context.OutputMerger.SetBlendState(new BlendState(MirrorServices.DirectXData.Device, blendDesc));
-
-        MirrorServices.DirectXData.Context.Rasterizer.State = RasterizerState;
-
-        MirrorServices.DirectXData.Context.OutputMerger.DepthStencilState = DepthStencilState;
-
-        CubeModel.Draw();
-        
-        ShaderHandler.ShadedModelShader.Release();
-
-        MirrorServices. DirectXData.Context.Rasterizer.State = null;
-        MirrorServices.DirectXData.Context.OutputMerger.DepthStencilState = null;
-        MirrorServices.DirectXData.Context.OutputMerger.SetBlendState(null);
-        
-        MirrorServices.StatePreserver.RestoreState();
-    }
-}
-
-
-public class MirrorsRenderTargetView
-{
-    public ulong Calls
-        { get; private set; } = 0;
-    
-    public ulong LastPresented
-        { get; private set; } = 0;
-    
-    public RenderTargetView RenderTargetView
-        { get; }
-    
-    public MirrorsRenderTargetView(RenderTargetView renderTargetView)
-    {
-        RenderTargetView = renderTargetView;
+        HandleRenderTextures(ref renderTexture, ref depthTexture);
     }
     
-    public void RegisterCall()
+    private void HandleRenderTextures(ref Texture2D renderTexture, ref Texture2D depthTexture)
     {
-        Calls++;
+        if (!renderTexture.Description.BindFlags.HasFlag(BindFlags.RenderTarget))
+        {
+            return;
+        }
+        
+        if (!depthTexture.Description.BindFlags.HasFlag(BindFlags.DepthStencil))
+        {
+            return;
+        }
+        
+        if (!TextureEquals(ref renderTexture, MirrorsRenderTargetManager->BackBufferNoUI))
+        {
+            return;
+        }
+        
+        if (!TextureEquals(ref depthTexture, MirrorsRenderTargetManager->DepthBufferNoTransparency))
+        {
+            return;
+        }
+        
+        MirrorServices.RenderService.NotifyRenderAllowed();
     }
     
-    public void PresentedAt(ulong presentIndex)
+    private bool TextureEquals(ref Texture2D texture, Texture* nativeTexture)
     {
-        LastPresented = presentIndex;
+        nint nativeTextureAddress = (nint)nativeTexture->D3D11Texture2D;
+        nint localTextureAddress  = texture.NativePointer;
+        
+        return (nativeTextureAddress == localTextureAddress);
     }
 }
 

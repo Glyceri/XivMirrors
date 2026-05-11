@@ -6,14 +6,13 @@ namespace TheMirrorsEdge.Services.Wrappers;
 
 internal class MirrorLog : IMirrorLog
 {
-    public static IMirrorLog? Instance { get; private set; }
-
-    private readonly IPluginLog PluginLog;
-
-    public MirrorLog(IPluginLog pluginLog)
+    private readonly IPluginLog    PluginLog;
+    private readonly Configuration Configuration;
+    
+    public MirrorLog(IPluginLog pluginLog, Configuration configuration)
     {
-        PluginLog   = pluginLog;
-        Instance    = this;
+        PluginLog     = pluginLog;
+        Configuration = configuration;
     }
 
     public void Log(object? message)
@@ -71,6 +70,21 @@ internal class MirrorLog : IMirrorLog
         PluginLog.Verbose($"{message}");
     }
 
+    public void LogExtremelyVerbose(object? message)
+    {
+        if (!Configuration.ExtremelyVerbose)
+        {
+            return;
+        }
+        
+        if (message == null)
+        {
+            return;
+        }
+
+        PluginLog.Verbose($"{message}");
+    }
+    
     public void LogWarning(object? message)
     {
         if (message == null)

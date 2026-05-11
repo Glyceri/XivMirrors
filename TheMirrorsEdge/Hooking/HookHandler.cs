@@ -15,13 +15,13 @@ public class HookHandler : IDisposable
     
     private readonly List<IHookableElement> HookableElements = [];
     
-    public IScreenHook ScreenHook 
+    public IScreenHook? ScreenHook 
         { get; private set; }
     
-    public RenderHook RenderHook
+    public CameraHook? CameraHook
         { get; private set; }
     
-    public CameraHook CameraHook
+    public CharacterManagerHook? CharacterManagerHook
         { get; private set; }
     
     public HookHandler(DalamudServices dalamudServices, MirrorServices mirrorServices, ShaderHandler shaderHandler)
@@ -36,11 +36,10 @@ public class HookHandler : IDisposable
     
     private void _Register()
     {
-        Register(CameraHook = new CameraHook(DalamudServices, MirrorServices));
-        Register(new CharacterManagerHook(DalamudServices, MirrorServices));
-        Register(ScreenHook = new ScreenHook(DalamudServices, MirrorServices));
-        Register(new UIRenderHook(DalamudServices, MirrorServices));
-        Register(RenderHook = new RenderHook(DalamudServices, MirrorServices, ScreenHook, CameraHook, ShaderHandler));
+        Register(CameraHook             = new CameraHook(DalamudServices, MirrorServices));
+        Register(CharacterManagerHook   = new CharacterManagerHook(DalamudServices, MirrorServices));
+        Register(ScreenHook             = new ScreenHook(DalamudServices, MirrorServices));
+        Register(new RenderHook(DalamudServices, MirrorServices));
     }
     
     private void _Init()

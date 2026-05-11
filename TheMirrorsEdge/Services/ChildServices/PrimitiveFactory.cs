@@ -1,6 +1,6 @@
 using SharpDX;
 using TheMirrorsEdge.Resources.Structs;
-using PrimitiveDeclaration = (TheMirrorsEdge.Resources.Structs.Vertex[] vertices, ushort[] indices);
+using TheMirrorsEdge.Services.Structs;
 
 namespace TheMirrorsEdge.Services.ChildServices;
 
@@ -10,10 +10,10 @@ public class PrimitiveFactory
     {
         Vertex[] vertices =
         [
-            new Vertex(new Vector3(-1, 1, 0),   new Vector2(0, 0)),
-            new Vertex(new Vector3(1, 1, 0),    new Vector2(1, 0)),
-            new Vertex(new Vector3(-1, -1, 0),  new Vector2(0, 1)),
-            new Vertex(new Vector3(1, -1, 0),   new Vector2(1, 1))
+            new Vertex(new Vector3(-1, 1,  0), new Vector2(0, 0)),
+            new Vertex(new Vector3(1,  1,  0), new Vector2(1, 0)),
+            new Vertex(new Vector3(-1, -1, 0), new Vector2(0, 1)),
+            new Vertex(new Vector3(1,  -1, 0), new Vector2(1, 1))
         ];
 
         ushort[] indices =
@@ -22,7 +22,26 @@ public class PrimitiveFactory
             2, 1, 3
         ];
 
-        return (vertices, indices);
+        return new PrimitiveDeclaration(vertices, indices);
+    }
+    
+    public PrimitiveDeclaration Quad(Vector2 topLeft, Vector2 topRight, Vector2 botLeft, Vector2 botRight)
+    {
+        Vertex[] vertices =
+        [
+            new Vertex(new Vector3(-1, 1,  0), topLeft),
+            new Vertex(new Vector3(1,  1,  0), topRight),
+            new Vertex(new Vector3(-1, -1, 0), botLeft),
+            new Vertex(new Vector3(1,  -1, 0), botRight)
+        ];
+
+        ushort[] indices =
+        [
+            0, 1, 2,
+            2, 1, 3
+        ];
+
+        return new PrimitiveDeclaration(vertices, indices);
     }
 
     public PrimitiveDeclaration Cube()
@@ -76,6 +95,6 @@ public class PrimitiveFactory
             20, 21, 22, 20, 22, 23      // Bottom
         };
 
-        return (vertices, indices);
+        return new PrimitiveDeclaration(vertices, indices);
     }
 }

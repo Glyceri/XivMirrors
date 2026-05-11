@@ -36,9 +36,9 @@
       <EmbeddedResource WithCulture="false" Include="Shaders\Files\ChannelFragmentShader.hlsl" LogicalName="ChannelFragmentShader.hlsl" />
   </ItemGroup>
   <ItemGroup>
-    <Content Include="Shaders\Files\nightsky.png" />
-  </ItemGroup>
-  <ItemGroup>
-    <ClCompile Include="Shaders\Files\ChannelFragmentShader.hlsl" />
+    <Content Include="Shaders\Files\nightsky.png" LogicalName="Nightsky.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <Visible>false</Visible>
+    </Content>
   </ItemGroup>
 </Project>

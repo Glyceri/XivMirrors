@@ -1,4 +1,6 @@
 using System;
+using Dalamud.Bindings.ImGui;
+using Dalamud.Interface.Utility;
 using Dalamud.Interface.Windowing;
 using TheMirrorsEdge.Hooking;
 using TheMirrorsEdge.Services;
@@ -9,12 +11,12 @@ namespace TheMirrorsEdge.Windowing;
 
 public class WindowHandler : IDisposable
 {
+    private static int _internalCounter  = 0;
+    
     private readonly DalamudServices DalamudServices;
     private readonly MirrorServices  MirrorServices;
     private readonly WindowSystem    WindowSystem;
     private readonly HookHandler     HookHandler;
-    
-    private readonly DebugWindow     DebugWindow;
     
     public WindowHandler(DalamudServices dalamudServices, MirrorServices mirrorServices, HookHandler hookHandler, ShaderHandler shaderHandler)
     {
@@ -25,22 +27,59 @@ public class WindowHandler : IDisposable
         
         DalamudServices.DalamudPlugin.UiBuilder.Draw += Draw;
         
-        WindowSystem.AddWindow(DebugWindow = new DebugWindow(DalamudServices, MirrorServices, HookHandler, shaderHandler));
+        _Register();
+    }
+    
+    private void _Register()
+    {
+        RegisterWindow(new DebugWindow(this, DalamudServices, MirrorServices));     
+        RegisterWindow(new ConfigurationWindow(this, DalamudServices, MirrorServices));
+    }
+    
+    private void RegisterWindow(MirrorWindow window)
+    {
+        WindowSystem.AddWindow(window);
     }
     
     private void Draw()
     {
-        HookHandler.ScreenHook.OnImGuiDraw();
-        //MirrorServices.MirrorLog.LogVerbose("POST IMGUI DRAW");
+        _internalCounter = 0;
+        
+        HookHandler.ScreenHook?.OnImGuiDraw();
+        
+        MirrorServices.MirrorLog.LogExtremelyVerbose("--- POST IMGUI DRAW ---");
+        
         WindowSystem.Draw();
     }
     
     public void Dispose()
     {
-        DebugWindow.Dispose();
-        
+        foreach (IWindow window in WindowSystem.Windows)
+        {
+            if (window is not IDisposable disposable)
+            {
+                continue;
+            }
+            
+            disposable.Dispose();
+        }
+
         WindowSystem.RemoveAllWindows();
         
         DalamudServices.DalamudPlugin.UiBuilder.Draw -= Draw;
     }
+    
+    public static int InternalCounter
+        => _internalCounter++;
+
+    // The 16 is because this plugin was made for exlusively dalamud font size 12 (which is font scale 16 in ImGUI).
+    // Scaling the whole UI thingy around it seems to work perfectly fine
+    public static float FontScale 
+        => (ImGui.GetFontSize() / 16.0f);
+
+    public static float GlobalScale
+        => ImGuiHelpers.GlobalScale * FontScale;
+
+    public static float BarHeight
+        => 30 * GlobalScale;
 }

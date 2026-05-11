@@ -9,8 +9,6 @@ public sealed class TheMirrorsEdgePlugin : IDalamudPlugin
     
     private TheMirrorsEdgeStarter? TheMirrorsEdgeStarter;
     
-    public static bool DISPOSED = false;
-    
     public TheMirrorsEdgePlugin(IDalamudPluginInterface pluginInterface)
     {
         DalamudServices = DalamudServices.Create(pluginInterface, this);
@@ -25,8 +23,6 @@ public sealed class TheMirrorsEdgePlugin : IDalamudPlugin
 
     public void Dispose()
     {
-        DISPOSED = true;
-        
         TheMirrorsEdgeStarter?.Dispose();
     }
 }

@@ -1,5 +1,6 @@
 using System;
 using Dalamud.Hooking;
+using Dalamud.Utility.Signatures;
 using FFXIVClientStructs.FFXIV.Client.Graphics.Kernel;
 using FFXIVClientStructs.FFXIV.Client.Graphics.Render;
 using SharpDX.Direct3D11;
@@ -18,6 +19,14 @@ public unsafe class RenderHook : HookableElement
     private readonly Hook<OMSetRenderTargetsDelegate>? OmSetRenderTargetsHook;
     private readonly Hook<OMPresentDelegate>?          OMPresentHook;
     
+    private delegate nint PushbackUIDelegate(nint a1, char a2);
+    
+    [Signature("E8 ?? ?? ?? ?? EB ?? E8 ?? ?? ?? ?? 4C 8D 5C 24 50", DetourName = nameof(PushbackUIDetour))]
+    private Hook<PushbackUIDelegate>? PushbackUIHook = null;
+    
+    [Signature("E8 ?? ?? ?? ?? 4C 8D 5C 24 ?? 49 8B 5B ?? 49 8B 6B ?? 49 8B E3 41 5F 41 5E 41 5C 5F 5E C3 ?? ?? ?? ?? ?? ?? ?? 48 8B 81", DetourName = nameof(PushbackUI2Detour))]
+    private Hook<PushbackUIDelegate>? PushbackUI2Hook = null;
+    
     public RenderHook(DalamudServices dalamudServices, MirrorServices mirrorServices)
         : base(dalamudServices, mirrorServices)
     {
@@ -32,12 +41,40 @@ public unsafe class RenderHook : HookableElement
     {
         OMPresentHook?.Dispose();
         OmSetRenderTargetsHook?.Dispose();
+        
+        PushbackUIHook?.Dispose();
+        PushbackUI2Hook?.Dispose();
     }
     
     public override void Init()
     { 
         OMPresentHook?.Enable();
         OmSetRenderTargetsHook?.Enable();
+        
+        PushbackUIHook?.Enable();
+        PushbackUI2Hook?.Enable();
+    }
+    
+    private int counter1 = 0;
+    private int counter2 = 0;
+    
+    private nint PushbackUIDetour(nint a1, char a2)
+    {
+        counter1++;
+        
+        MirrorServices.MirrorLog.LogInfo("PUSHBACK UI1: " + counter1 + " , " + counter2);
+        
+
+        return PushbackUIHook!.OriginalDisposeSafe(a1, a2);
+    }
+    
+    private nint PushbackUI2Detour(nint a1, char a2)
+    {
+        counter2++;
+        
+        MirrorServices.MirrorLog.LogInfo("PUSHBACK UI2: " + counter1 + " , " + counter2);
+        
+        return PushbackUI2Hook!.OriginalDisposeSafe(a1, a2);
     }
     
     private int ProperPresentDetour(nint swapChain, uint syncInterval, uint flags)

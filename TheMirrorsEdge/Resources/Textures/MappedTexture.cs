@@ -49,7 +49,12 @@ public unsafe class MappedTexture : BasicTexture
     {
         Texture2D texture2D = new Texture2D((nint)nativeTexture->D3D11Texture2D);
         
-        return CloneFrom(texture2D, directXData);
+        MappedTexture mappedTexture = CloneFrom(texture2D, directXData);
+        
+        mappedTexture.MappedWidth  = nativeTexture->ActualWidth;
+        mappedTexture.MappedHeight = nativeTexture->ActualHeight;
+        
+        return mappedTexture;
     }
     
     /// <summary>
@@ -154,9 +159,14 @@ public unsafe class MappedTexture : BasicTexture
 
     private uint GetActualWidth()
     {
-        if (isNative)
+        if (nativeTexture != null)
         {
             return nativeTexture->ActualWidth;
+        }
+        
+        if (MappedWidth != null)
+        {
+            return MappedWidth.Value;
         }
 
         return Width;
@@ -164,9 +174,14 @@ public unsafe class MappedTexture : BasicTexture
 
     private uint GetActualHeight()
     {
-        if (isNative)
+        if (nativeTexture != null)
         {
             return nativeTexture->ActualHeight;
+        }
+        
+        if (MappedHeight != null)
+        {
+            return MappedHeight.Value;
         }
 
         return Height;

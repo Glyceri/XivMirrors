@@ -31,8 +31,6 @@
       <EmbeddedResource WithCulture="false" Include="Shaders\Files\ClippedFragmentShader.hlsl" LogicalName="ClippedFragmentShader.hlsl" />
       <EmbeddedResource WithCulture="false" Include="Shaders\Files\MirrorFragmentShader.hlsl" LogicalName="MirrorFragmentShader.hlsl" />
       <EmbeddedResource WithCulture="false" Include="Shaders\Files\ShadedFragmentShader.hlsl" LogicalName="ShadedFragmentShader.hlsl" />
-      <EmbeddedResource WithCulture="false" Include="Shaders\Files\InvertAlphaFragmentShader.hlsl" LogicalName="InvertAlphaFragmentShader.hlsl" />
-      <EmbeddedResource WithCulture="false" Include="Shaders\Files\TransparencyMimicFragmentShader.hlsl" LogicalName="TransparencyMimicFragmentShader.hlsl" />
       <EmbeddedResource WithCulture="false" Include="Shaders\Files\ChannelFragmentShader.hlsl" LogicalName="ChannelFragmentShader.hlsl" />
   </ItemGroup>
   <ItemGroup>

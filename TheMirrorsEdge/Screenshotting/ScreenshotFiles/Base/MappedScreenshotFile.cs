@@ -86,12 +86,12 @@ public abstract class MappedScreenshotFile : IScreenshotFile
         {
             return;
         }
+
+        ShaderHandler.BackBufferCleanupShader.Bind(_temporaryTexture, _temporaryRenderTexture);
         
-        ShaderHandler.AlphaShader.Bind(_temporaryTexture, _temporaryRenderTexture);
+        ShaderHandler.BackBufferCleanupShader.Draw();
         
-        ShaderHandler.AlphaShader.Draw();
-        
-        ShaderHandler.AlphaShader.UnbindTexture();
+        ShaderHandler.BackBufferCleanupShader.UnbindTexture();
         
         ScreenshotTexture       = _temporaryRenderTexture.ToMappedTexture(MirrorServices.DirectXData);
         

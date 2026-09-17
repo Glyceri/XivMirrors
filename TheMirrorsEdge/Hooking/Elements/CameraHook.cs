@@ -1,14 +1,19 @@
+using System.Runtime.InteropServices;
 using Dalamud.Hooking;
 using Dalamud.Utility.Signatures;
 using FFXIVClientStructs.FFXIV.Client.Game;
 using FFXIVClientStructs.FFXIV.Client.Game.Control;
+using FFXIVClientStructs.FFXIV.Common.Math;
 using SharpDX;
 using TheMirrorsEdge.Camera.CameraTypes;
 using TheMirrorsEdge.Memory;
 using TheMirrorsEdge.Resources.Structs;
 using TheMirrorsEdge.Services;
-using RenderCamera = FFXIVClientStructs.FFXIV.Client.Graphics.Render.Camera;
-using XIVCamera = FFXIVClientStructs.FFXIV.Client.Game.Camera;
+
+using Vector3         = SharpDX.Vector3;
+using XIVCamera       = FFXIVClientStructs.FFXIV.Client.Game.Camera;
+using XIVSceneCamera  = FFXIVClientStructs.FFXIV.Client.Graphics.Scene.Camera;
+using XIVRenderCamera = FFXIVClientStructs.FFXIV.Client.Graphics.Render.Camera;
 
 namespace TheMirrorsEdge.Hooking.Elements;
 
@@ -20,13 +25,36 @@ public unsafe class CameraHook : HookableElement
 {
     private delegate XIVCamera* CameraManager_GetActiveCameraDelegate(CameraManager* cameraManager);
     private delegate XIVCamera* Camera_CtorDelegate(XIVCamera* camera);
-
+    private delegate nint       CameraCollisionDelegate(XIVCamera* a1, Vector3* a2, Vector3* a3, float a4, nint a5, float a6);
+    private delegate nint       CameraUpdateDelegate(XIVCamera* camera);
+    private delegate nint       CameraSceneUpdateDelegate(XIVSceneCamera* gsc);
+    private delegate Matrix4x4* ProjectionMatrixDelegate(nint ptr, float fov, float aspect, float nearPlane, float farPlane, float a6, float a7);
+    private delegate void       CameraMatrixLoadDelegate(XIVRenderCamera* camera, nint a1);
+    
+    
     [Signature("E8 ?? ?? ?? ?? F7 80 84 01 00 00 FB FF FF FF", DetourName = nameof(CameraManager_GetActiveCameraDetour))]
     private readonly Hook<CameraManager_GetActiveCameraDelegate>? CameraManager_GetActiveCameraHook = null;
 
     [Signature("E8 ?? ?? ?? ?? EB 03 48 8B C6 45 33 C0 48 89 07", DetourName = nameof(Camera_CtorDetour))]
     private readonly Hook<Camera_CtorDelegate>? Camera_CtorHook = null;
 
+    
+    [Signature("E8 ?? ?? ?? ?? 4C 8D 44 24 40 89 83 14 ?? ?? ??", DetourName = nameof(CameraCollisionDetour))]
+    private readonly Hook<CameraCollisionDelegate>? CameraCollisionHook = null!;
+
+    [Signature("40 55 53 57 48 8D 6C 24 A0 48 81 EC ?? ?? ?? ?? 48 8B 1D", DetourName = nameof(CameraUpdateDetour))]
+    private readonly Hook<CameraUpdateDelegate>? CameraUpdateHook = null!;
+
+    [Signature("48 ?? ?? ?? ?? ?? 48 81 EC ?? ?? ?? ?? F6 81 F0 ?? ?? ?? ?? 48 8B ??", DetourName = nameof(CameraSceneUpdateDetour))]
+    private readonly Hook<CameraSceneUpdateDelegate>? CameraSceneUpdateHook = null!;
+
+    [Signature("E8 ?? ?? ?? ?? EB ?? F3 0F ?? ?? ?? ?? ?? ?? F3 0F ?? ?? ?? ?? E8 ?? ?? ?? ?? 0F ?? ?? ?? 48 ?? ?? ??", DetourName = nameof(ProjectionMatrixDetour))]
+    private static Hook<ProjectionMatrixDelegate>? ProjectionHook = null!;
+    
+    
+    private readonly CameraMatrixLoadDelegate CameraMatrixLoad;
+    
+    
     private MirrorCamera? OverrideCamera;
 
     private delegate nint GetEngineCoreSingletonDelegate();
@@ -43,7 +71,11 @@ public unsafe class CameraHook : HookableElement
     private readonly Hook<EnvironmentManagerUpdate>? EnvironmentManagerUpdateHook = null!;
 
     public CameraHook(DalamudServices dalamudServices, MirrorServices mirrorServices) 
-        : base(dalamudServices, mirrorServices) { }
+        : base(dalamudServices, mirrorServices)
+    {
+        nint cameraMatrixLoadAddr = DalamudServices.SigScanner.ScanText("E8 ?? ?? ?? ?? 48 8B 93 90 02 ?? ?? 48 8D 4C 24 40");
+        CameraMatrixLoad          = Marshal.GetDelegateForFunctionPointer<CameraMatrixLoadDelegate>(cameraMatrixLoadAddr);
+    }
 
     public override void Init()
     {
@@ -51,6 +83,24 @@ public unsafe class CameraHook : HookableElement
         Camera_CtorHook?.Enable();
 
         EnvironmentManagerUpdateHook?.Enable();
+        
+        CameraCollisionHook?.Enable();
+        CameraUpdateHook?.Enable();
+        CameraSceneUpdateHook?.Enable();
+        ProjectionHook?.Enable();
+    }
+    
+    public override void Dispose()
+    {
+        EnvironmentManagerUpdateHook?.Dispose();
+
+        CameraManager_GetActiveCameraHook?.Dispose();
+        Camera_CtorHook?.Dispose();
+        
+        CameraCollisionHook?.Dispose();
+        CameraUpdateHook?.Dispose();
+        CameraSceneUpdateHook?.Dispose();
+        ProjectionHook?.Dispose();
     }
 
     private nint EnvironmentManagerUpdateDetour(nint thisPtr, nint unk1)
@@ -74,7 +124,7 @@ public unsafe class CameraHook : HookableElement
             return;
         }
 
-        RenderCamera* renderCamera = activeCamera->SceneCamera.RenderCamera;
+        XIVRenderCamera* renderCamera = activeCamera->SceneCamera.RenderCamera;
 
         if (renderCamera == null)
         {
@@ -127,13 +177,54 @@ public unsafe class CameraHook : HookableElement
         OverrideCamera = overrideCamera;
     }
 
-    private XIVCamera* CameraManager_GetActiveCameraDetour(CameraManager* cameraManager)
+    private nint CameraCollisionDetour(XIVCamera* a1, Vector3* a2, Vector3* a3, float a4, nint a5, float a6)
     {
+        MirrorServices.MirrorLog.Log("CameraCollisionDetour");
+        
+        return CameraCollisionHook!.OriginalDisposeSafe(a1, a2, a3, a4, a5, a6);
+    }
+    
+    private nint CameraUpdateDetour(XIVCamera* camera)
+    {
+        MirrorServices.MirrorLog.Log("CameraUpdateDetour");
+        
+        nint returner = CameraUpdateHook!.Original(camera);
+        
+        
         if (OverrideCamera != null)
         {
-            return OverrideCamera.Camera;
-        }    
-
+            camera->SceneCamera.Object.Position = OverrideCamera.Camera->SceneCamera.Object.Position;
+            camera->SceneCamera.LookAtVector    = OverrideCamera.Camera->SceneCamera.LookAtVector;
+            camera->SceneCamera.Object.Rotation = OverrideCamera.Camera->SceneCamera.Object.Rotation;
+            camera->SceneCamera.Rotation        = OverrideCamera.Camera->SceneCamera.Rotation;
+            camera->SceneCamera.ViewMatrix      = OverrideCamera.Camera->SceneCamera.ViewMatrix;
+            camera->SceneCamera.RenderCamera->ProjectionMatrix = OverrideCamera.Camera->SceneCamera.RenderCamera->ProjectionMatrix;
+            camera->SceneCamera.RenderCamera->ViewMatrix = OverrideCamera.Camera->SceneCamera.RenderCamera->ViewMatrix;
+            camera->SceneCamera.RenderCamera->ProjectionMatrix2 = OverrideCamera.Camera->SceneCamera.RenderCamera->ProjectionMatrix2;
+        }
+        
+        return returner;
+    }
+    
+    private nint CameraSceneUpdateDetour(XIVSceneCamera* gsc)
+    {
+        MirrorServices.MirrorLog.Log("CameraSceneUpdateDetour");
+        
+        return CameraSceneUpdateHook!.Original(gsc);        
+    }
+    
+    private Matrix4x4* ProjectionMatrixDetour(nint ptr, float fov, float aspect, float nearPlane, float farPlane, float a6, float a7)
+    {
+        
+        MirrorServices.MirrorLog.Log("ProjectionMatrixDetour");
+        
+        return ProjectionHook!.OriginalDisposeSafe(ptr, fov, aspect, nearPlane, farPlane, a6, a7);
+    }
+    
+    private XIVCamera* CameraManager_GetActiveCameraDetour(CameraManager* cameraManager)
+    {
+        MirrorServices.MirrorLog.Log("CameraManager_GetActiveCameraDetour");
+        
         return CameraManager_GetActiveCameraHook!.Original(cameraManager);
     }
 
@@ -142,13 +233,5 @@ public unsafe class CameraHook : HookableElement
         MirrorServices.MirrorLog.Log("Camera Constructor Triggered.");
 
         return Camera_CtorHook!.Original(camera);
-    }
-
-    public override void Dispose()
-    {
-        EnvironmentManagerUpdateHook?.Dispose();
-
-        CameraManager_GetActiveCameraHook?.Dispose();
-        Camera_CtorHook?.Dispose();
     }
 }

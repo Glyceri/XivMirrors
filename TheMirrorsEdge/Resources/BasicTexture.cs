@@ -9,7 +9,10 @@ public abstract class BasicTexture : IDisposable
 {
     public uint Width  { get; protected init; }
     public uint Height { get; protected init; }
-
+    
+    protected uint? MappedWidth  { get; set; }
+    protected uint? MappedHeight { get; set; }
+    
     public abstract uint ActualWidth  { get; }
     public abstract uint ActualHeight { get; }
 
